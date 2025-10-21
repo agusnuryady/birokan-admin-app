@@ -1,0 +1,12 @@
+@import 'tailwindcss/preflight';
+@import 'tailwindcss/theme';
+@import 'tailwindcss/utilities';
+
+.hover-card {
+  transition: all 0.3s ease-in-out;
+}
+
+.hover-card:hover {
+  box-shadow: 0 0 20px rgba(37, 99, 235, 0.5); /* glowing blue */
+  transform: translateY(-4px);
+}

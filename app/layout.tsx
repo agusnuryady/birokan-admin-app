@@ -1,12 +1,22 @@
 import '@mantine/core/styles.css';
+import '@mantine/notifications/styles.css';
+import '@mantine/dates/styles.css';
+import '@mantine/tiptap/styles.css';
+import '../styles/globals.css';
 
 import React from 'react';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import { ColorSchemeScript, mantineHtmlProps, MantineProvider } from '@mantine/core';
+import { Notifications } from '@mantine/notifications';
+import GlobalLoadingOverlay from '@/components/GlobalLoading';
 import { theme } from '../theme';
 
 export const metadata = {
-  title: 'Mantine Next.js template',
+  title: 'Admin | Birokan',
   description: 'I am using Mantine with Next.js!',
+  icons: {
+    icon: 'favicon.ico',
+  },
 };
 
 export default function RootLayout({ children }: { children: any }) {
@@ -14,14 +24,20 @@ export default function RootLayout({ children }: { children: any }) {
     <html lang="en" {...mantineHtmlProps}>
       <head>
         <ColorSchemeScript />
-        <link rel="shortcut icon" href="/favicon.svg" />
+        <link rel="shortcut icon" href="/favicon.ico" />
         <meta
           name="viewport"
           content="minimum-scale=1, initial-scale=1, width=device-width, user-scalable=no"
         />
       </head>
       <body>
-        <MantineProvider theme={theme}>{children}</MantineProvider>
+        <MantineProvider theme={theme}>
+          <Notifications position="top-center" />
+          <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!}>
+            {children}
+          </GoogleOAuthProvider>
+          <GlobalLoadingOverlay />
+        </MantineProvider>
       </body>
     </html>
   );
