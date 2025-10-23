@@ -11,11 +11,17 @@ interface DocumentItem {
   updatedAt: string;
 }
 
+export interface ProcedureRequirementInput {
+  id?: string;
+  description: string;
+}
+
 export interface ProcedureDocumentInput {
   id?: string;
   documentId: string;
   amount?: number;
   required?: boolean;
+  directoryId?: string;
   document?: DocumentItem;
 }
 
@@ -54,6 +60,7 @@ export interface ProcedureFormValues {
   isAssistant?: boolean;
   duration?: number;
   cost?: number;
+  requirements: ProcedureRequirementInput[];
   documents: ProcedureDocumentInput[];
   places: ProcedurePlaceInput[];
   steps: ProcedureStepInput[];
@@ -76,6 +83,7 @@ export interface ProcedureResponse {
   documents?: ProcedureDocumentInput[];
   places?: ProcedurePlaceInput[];
   steps?: ProcedureStepInput[];
+  requirements?: ProcedureRequirementInput[];
 }
 
 /* ----------------------- Query & Pagination ----------------------- */
@@ -151,6 +159,12 @@ export async function createProcedure(values: ProcedureFormValues) {
   }
 
   // --- Array fields ---
+  (values.requirements ?? []).forEach((requirement, i) => {
+    if (requirement.description) {
+      formData.append(`requirements[${i}][description]`, requirement.description);
+    }
+  });
+
   (values.documents ?? []).forEach((doc, i) => {
     if (doc.documentId) {
       formData.append(`documents[${i}][documentId]`, doc.documentId);
@@ -160,6 +174,9 @@ export async function createProcedure(values: ProcedureFormValues) {
     }
     if (doc.required !== undefined) {
       formData.append(`documents[${i}][required]`, String(doc.required));
+    }
+    if (doc.directoryId !== undefined && doc.directoryId !== null) {
+      formData.append(`documents[${i}][directoryId]`, String(doc.directoryId));
     }
   });
 
@@ -234,6 +251,13 @@ export async function updateProcedure(id: string, values: ProcedureFormValues) {
     formData.append('cost', String(values.cost));
   }
 
+  /** ---------------------- REQUIREMENTS ---------------------- **/
+  (values.requirements ?? []).forEach((requirement, i) => {
+    if (requirement.description) {
+      formData.append(`requirements[${i}][description]`, requirement.description);
+    }
+  });
+
   /** ---------------------- DOCUMENTS ---------------------- **/
   (values.documents ?? []).forEach((doc, i) => {
     if (doc.documentId) {
@@ -244,6 +268,9 @@ export async function updateProcedure(id: string, values: ProcedureFormValues) {
     }
     if (doc.required !== undefined) {
       formData.append(`documents[${i}][required]`, String(doc.required));
+    }
+    if (doc.directoryId !== undefined && doc.directoryId !== null) {
+      formData.append(`documents[${i}][directoryId]`, String(doc.directoryId));
     }
   });
 

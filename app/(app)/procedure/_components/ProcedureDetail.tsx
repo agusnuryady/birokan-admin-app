@@ -97,7 +97,13 @@ export default function ProcedureDetail({ data, onEdit, onDelete }: ProcedureDet
                   <Text size="xs" c="dimmed">
                     Description
                   </Text>
-                  <Text size="sm" lineClamp={2}>
+                  <Text
+                    size="sm"
+                    style={{
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                    }}
+                  >
                     {data?.description}
                   </Text>
                 </Stack>
@@ -159,6 +165,34 @@ export default function ProcedureDetail({ data, onEdit, onDelete }: ProcedureDet
         </Stack>
       </Paper>
 
+      {/* Requirements */}
+      <Card withBorder radius="md" p="md">
+        <Text fw={600} mb="sm">
+          Requirements
+        </Text>
+        <Text size="sm" c="dimmed" mb="md">
+          List of requirements for this procedure
+        </Text>
+        {data?.requirements?.length === 0 && <Divider label="No requirements yet" />}
+        <SimpleGrid type="container" cols={{ base: 1 }} spacing="md">
+          {data?.requirements
+            ? data.requirements.map((place, i) => (
+                <Paper key={i} withBorder p="xs" radius="md">
+                  <Text
+                    fw={500}
+                    style={{
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    {place.description}
+                  </Text>
+                </Paper>
+              ))
+            : null}
+        </SimpleGrid>
+      </Card>
+
       {/* Documents */}
       <Card withBorder radius="md" p="md">
         <Text fw={600} mb="sm">
@@ -167,6 +201,7 @@ export default function ProcedureDetail({ data, onEdit, onDelete }: ProcedureDet
         <Text size="sm" c="dimmed" mb="md">
           List of documents for this procedure
         </Text>
+        {data?.documents?.length === 0 && <Divider label="No documents yet" />}
         <SimpleGrid type="container" cols={{ base: 1, '426px': 2, '769px': 3 }} spacing="md">
           {data?.documents
             ? data.documents.map((doc, i) => (
@@ -177,6 +212,14 @@ export default function ProcedureDetail({ data, onEdit, onDelete }: ProcedureDet
                   </Group>
                   <Text size="sm">Amount: {doc.amount}</Text>
                   <Text size="sm">Is Required: {doc.required ? 'True' : 'False'}</Text>
+                  {doc.directoryId && (
+                    <Group gap={2}>
+                      <Text size="sm">Directory Reference:</Text>
+                      <Anchor size="sm" href={`/directories/${doc.directoryId}`}>
+                        Go To Directory
+                      </Anchor>
+                    </Group>
+                  )}
                 </Paper>
               ))
             : null}
@@ -191,6 +234,7 @@ export default function ProcedureDetail({ data, onEdit, onDelete }: ProcedureDet
         <Text size="sm" c="dimmed" mb="md">
           List of places for this procedure
         </Text>
+        {data?.places?.length === 0 && <Divider label="No places yet" />}
         <SimpleGrid type="container" cols={{ base: 1, '426px': 2, '769px': 3 }} spacing="md">
           {data?.places
             ? data.places.map((place, i) => (
@@ -213,6 +257,7 @@ export default function ProcedureDetail({ data, onEdit, onDelete }: ProcedureDet
         <Text size="sm" c="dimmed" mb="md">
           Sequence of steps for this procedure
         </Text>
+        {data?.steps?.length === 0 && <Divider label="No steps yet" />}
         <Stack gap="sm">
           {data?.steps
             ? data.steps.map((step, i) => (
@@ -234,7 +279,15 @@ export default function ProcedureDetail({ data, onEdit, onDelete }: ProcedureDet
                         <Text size="xs" c="dimmed">
                           Description
                         </Text>
-                        <Text fw={500}>{step.description}</Text>
+                        <Text
+                          fw={500}
+                          style={{
+                            whiteSpace: 'pre-wrap',
+                            wordBreak: 'break-word',
+                          }}
+                        >
+                          {step.description}
+                        </Text>
                       </Stack>
                       {step.linkURL && (
                         <Stack gap={2}>

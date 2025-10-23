@@ -46,6 +46,7 @@ export default function ProcedureModal({
       slug: '',
       isActive: true,
       isAssistant: false,
+      requirements: [],
       documents: [],
       places: [],
       steps: [],
@@ -67,11 +68,16 @@ export default function ProcedureModal({
           ...form.values,
           ...initialValues,
           description: initialValues?.description || '',
+          requirements:
+            initialValues.requirements?.map((item) => ({
+              description: item.description,
+            })) ?? form.values.requirements,
           documents:
             initialValues.documents?.map((item) => ({
               documentId: item.documentId,
               amount: item.amount,
               required: item.required,
+              directoryId: item.directoryId,
             })) ?? form.values.documents,
           places:
             initialValues.places?.map((item) => ({
@@ -104,6 +110,18 @@ export default function ProcedureModal({
   }, [opened, initialValues]);
 
   // helpers to manipulate lists (documents / places / steps)
+  const addRequirement = () =>
+    form.setValues({
+      ...form.values,
+      requirements: [...form.values.requirements, { description: '' }],
+    });
+
+  const removeRequirement = (index: number) => {
+    const requirements = [...form.values.requirements];
+    requirements.splice(index, 1);
+    form.setValues({ ...form.values, requirements });
+  };
+
   const addDocument = () =>
     form.setValues({
       ...form.values,
@@ -239,6 +257,41 @@ export default function ProcedureModal({
             </>
           )}
 
+          {/* Requirements */}
+          <Divider label="Requirements" />
+          <Stack gap="sm">
+            {form.values.requirements.length === 0 && (
+              <Text size="sm" c="dimmed">
+                No requirement yet. Add one below.
+              </Text>
+            )}
+
+            {form.values.requirements.map((_, idx) => (
+              <Paper key={idx} p="sm" radius="md" withBorder>
+                <Group align="center" wrap="nowrap">
+                  <Textarea
+                    label="Requirement Description"
+                    placeholder="Enter requirement description"
+                    {...form.getInputProps(`requirements.${idx}.description`)}
+                    style={{ flex: 1 }}
+                  />
+                  <ActionIcon
+                    color="red"
+                    variant="light"
+                    onClick={() => removeRequirement(idx)}
+                    aria-label="Delete place"
+                  >
+                    <IconTrash size={16} />
+                  </ActionIcon>
+                </Group>
+              </Paper>
+            ))}
+
+            <Button variant="light" onClick={addRequirement}>
+              + Add New Requirement
+            </Button>
+          </Stack>
+
           {/* Documents */}
           <Divider label="Documents" />
           <Stack gap="sm">
@@ -251,45 +304,60 @@ export default function ProcedureModal({
             {form.values.documents.map((_, idx) => (
               <Paper key={idx} p="sm" radius="md" withBorder>
                 <Group align="center" wrap="nowrap">
-                  <Group align="center">
-                    <Group align="end" flex={1} wrap="nowrap">
-                      <Box style={{ flex: 1, minWidth: 100 }}>
+                  <Stack>
+                    <Group align="center">
+                      <Group align="end" flex={1} wrap="nowrap">
+                        <Box style={{ flex: 1, minWidth: 100 }}>
+                          <Select
+                            searchable
+                            label="Document Name"
+                            placeholder="Select document"
+                            data={dropdownData.documents.map((item) => ({
+                              label: item.name,
+                              value: item.id,
+                            }))}
+                            {...form.getInputProps(`documents.${idx}.documentId` as any)}
+                            required
+                            style={{ flex: 1 }}
+                          />
+                        </Box>
+
+                        <Box style={{ flex: 1 }}>
+                          <NumberInput
+                            label="Document Amount"
+                            min={1}
+                            {...form.getInputProps(`documents.${idx}.amount` as any)}
+                            required
+                          />
+                        </Box>
+                      </Group>
+                      <Box style={{ minWidth: 90 }}>
                         <Select
-                          searchable
-                          label="Document Name"
-                          placeholder="Select document"
-                          data={dropdownData.documents.map((item) => ({
+                          label="Directory Reference"
+                          placeholder="Select directory"
+                          data={dropdownData.directory.map((item) => ({
                             label: item.name,
                             value: item.id,
                           }))}
-                          {...form.getInputProps(`documents.${idx}.documentId` as any)}
-                          required
-                          style={{ flex: 1 }}
-                        />
-                      </Box>
-
-                      <Box style={{ flex: 1 }}>
-                        <NumberInput
-                          label="Document Amount"
-                          min={1}
-                          {...form.getInputProps(`documents.${idx}.amount` as any)}
-                          required
+                          {...form.getInputProps(`documents.${idx}.directoryId` as any)}
                         />
                       </Box>
                     </Group>
-                    <Box style={{ minWidth: 90 }}>
-                      <Group align="center" gap="xs">
-                        <Switch
-                          {...form.getInputProps(`documents.${idx}.required` as any, {
-                            type: 'checkbox',
-                          })}
-                        />
-                        <Text size="sm">
-                          {form.values.documents[idx].required ? 'Required' : 'Optional'}
-                        </Text>
-                      </Group>
-                    </Box>
-                  </Group>
+                    <Group align="center">
+                      <Box style={{ flex: 1, minWidth: 100 }}>
+                        <Group align="center" gap="xs">
+                          <Switch
+                            {...form.getInputProps(`documents.${idx}.required` as any, {
+                              type: 'checkbox',
+                            })}
+                          />
+                          <Text size="sm">
+                            {form.values.documents[idx].required ? 'Required' : 'Optional'}
+                          </Text>
+                        </Group>
+                      </Box>
+                    </Group>
+                  </Stack>
 
                   <ActionIcon
                     color="red"
