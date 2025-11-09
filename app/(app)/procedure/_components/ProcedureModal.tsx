@@ -14,12 +14,18 @@ import {
   Select,
   Stack,
   Switch,
+  TagsInput,
   Text,
   Textarea,
   TextInput,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
-import { ProcedureDropdownResponse, ProcedureFormValues } from '@/services/procedureService';
+import {
+  ProcedureDropdownResponse,
+  ProcedureFormValues,
+  QuestionType,
+} from '@/services/procedureService';
+import { DeclarationEditor } from './DeclarationEditor';
 import StepList from './StepList';
 
 type ProcedureModalProps = {
@@ -50,6 +56,8 @@ export default function ProcedureModal({
       documents: [],
       places: [],
       steps: [],
+      questions: [],
+      declarations: [],
       ...initialValues,
       description: initialValues?.description || '',
     },
@@ -98,6 +106,22 @@ export default function ProcedureModal({
                 image: item.image ?? null,
               }))
             : form.values.steps,
+          questions:
+            initialValues.questions?.map((item) => ({
+              label: item.label,
+              description: item.description,
+              questionText: item.questionText,
+              type: item.type,
+              required: item.required,
+              options: item.options,
+            })) ?? form.values.questions,
+          declarations:
+            initialValues.declarations?.map((item) => ({
+              id: item.id ?? crypto.randomUUID(),
+              title: item.title,
+              boldText: item.boldText,
+              content: item.content,
+            })) ?? form.values.declarations,
         } as ProcedureFormValues);
         const defaultOptions = initialValues.steps?.map((item) => item.group) || [];
         const dropdowDefault = dropdownData.stepGroup?.map((item) => item.group) || [];
@@ -146,28 +170,35 @@ export default function ProcedureModal({
     form.setValues({ ...form.values, places });
   };
 
-  // const addStep = () =>
-  //   form.setValues({
-  //     ...form.values,
-  //     steps: [
-  //       ...form.values.steps,
-  //       {
-  //         order: form.values.steps.length + 1,
-  //         description: '',
-  //         group: '',
-  //         linkURL: '',
-  //         imageUrl: '',
-  //       },
-  //     ],
-  //   });
+  const addQuestion = () =>
+    form.setValues({
+      ...form.values,
+      questions: [
+        ...form.values.questions,
+        { questionText: '', type: QuestionType.TEXT, required: true, description: '', options: [] },
+      ],
+    });
 
-  // const removeStep = (index: number) => {
-  //   const steps = [...form.values.steps];
-  //   steps.splice(index, 1);
-  //   // re-number
-  //   const renumbered = steps.map((s, i) => ({ ...s, number: i + 1 }));
-  //   form.setValues({ ...form.values, steps: renumbered });
-  // };
+  const removeQuestion = (index: number) => {
+    const questions = [...form.values.questions];
+    questions.splice(index, 1);
+    form.setValues({ ...form.values, questions });
+  };
+
+  const addDeclaration = () =>
+    form.setValues({
+      ...form.values,
+      declarations: [
+        ...form.values.declarations,
+        { id: crypto.randomUUID(), title: '', boldText: '', content: '' },
+      ],
+    });
+
+  const removeDeclaration = (index: number) => {
+    const declarations = [...form.values.declarations];
+    declarations.splice(index, 1);
+    form.setValues({ ...form.values, declarations });
+  };
 
   const handleSubmit = async (values: ProcedureFormValues) => {
     await onSubmit(values);
@@ -273,6 +304,7 @@ export default function ProcedureModal({
                     label="Requirement Description"
                     placeholder="Enter requirement description"
                     {...form.getInputProps(`requirements.${idx}.description`)}
+                    required
                     style={{ flex: 1 }}
                   />
                   <ActionIcon
@@ -417,6 +449,111 @@ export default function ProcedureModal({
           {/* Steps */}
           <Divider label="Steps" />
           <StepList form={form} options={options} setOptions={setOptions} />
+
+          {form.values.isAssistant && (
+            <>
+              {/* Questions */}
+              <Divider label="Questions" />
+              <Stack gap="sm">
+                {form.values.questions.length === 0 && (
+                  <Text size="sm" c="dimmed">
+                    No questions yet. Add one below.
+                  </Text>
+                )}
+
+                {form.values.questions.map((question, idx) => (
+                  <Paper key={idx} p="sm" radius="md" withBorder>
+                    <Group align="center" wrap="nowrap">
+                      <Stack style={{ flex: 1 }}>
+                        <TextInput
+                          label="Question Form"
+                          placeholder="Enter question form"
+                          {...form.getInputProps(`questions.${idx}.questionText`)}
+                          required
+                          style={{ flex: 1 }}
+                        />
+                        <Group align="center" wrap="nowrap">
+                          <TextInput
+                            label="Description"
+                            placeholder="Enter description name"
+                            {...form.getInputProps(`questions.${idx}.description`)}
+                            style={{ flex: 1 }}
+                          />
+                          <Select
+                            label="Question Type"
+                            placeholder="Select type"
+                            searchable
+                            data={Object.values(QuestionType).map((value) => ({
+                              label: value.charAt(0) + value.slice(1).toLowerCase(), // e.g. "Text"
+                              value,
+                            }))}
+                            {...form.getInputProps(`questions.${idx}.type`)}
+                            required
+                            style={{ flex: 1 }}
+                          />
+                        </Group>
+                        {(question.type === 'SELECT' || question.type === 'MULTISELECT') && (
+                          <TagsInput
+                            label="Options"
+                            placeholder="Add options"
+                            {...form.getInputProps(`questions.${idx}.options`)}
+                            required={question.type === 'SELECT' || question.type === 'MULTISELECT'}
+                            style={{ flex: 1 }}
+                          />
+                        )}
+                        <Group align="center" gap="xs">
+                          <Switch
+                            {...form.getInputProps(`questions.${idx}.required` as any, {
+                              type: 'checkbox',
+                            })}
+                          />
+                          <Text size="sm">
+                            {form.values.questions[idx].required ? 'Required' : 'Optional'}
+                          </Text>
+                        </Group>
+                      </Stack>
+                      <ActionIcon
+                        color="red"
+                        variant="light"
+                        onClick={() => removeQuestion(idx)}
+                        aria-label="Delete place"
+                      >
+                        <IconTrash size={16} />
+                      </ActionIcon>
+                    </Group>
+                  </Paper>
+                ))}
+
+                <Button variant="light" onClick={addQuestion}>
+                  + Add New Question
+                </Button>
+              </Stack>
+
+              {/* Declarations */}
+              <Divider label="Declarations" />
+              <Stack gap="sm">
+                {form.values.declarations.length === 0 && (
+                  <Text size="sm" c="dimmed">
+                    No declarations yet. Add one below.
+                  </Text>
+                )}
+
+                {form.values.declarations.map((declaration, idx) => (
+                  <DeclarationEditor
+                    key={declaration.id}
+                    idx={idx}
+                    declaration={declaration}
+                    form={form}
+                    removeDeclaration={removeDeclaration}
+                  />
+                ))}
+
+                <Button variant="light" onClick={addDeclaration}>
+                  + Add New Declaration
+                </Button>
+              </Stack>
+            </>
+          )}
         </Stack>
 
         {/* Footer */}

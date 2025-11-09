@@ -5,7 +5,12 @@ import { IconDots, IconEdit } from '@tabler/icons-react';
 import { ActionIcon, Badge, Card, Image, Menu, Paper, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import DataTable from '@/components/DataTable';
-import { updateUserAdmin, UserFormValues, UserResponse } from '@/services/userService';
+import {
+  getUserDetail,
+  updateUserAdmin,
+  UserFormValues,
+  UserResponse,
+} from '@/services/userService';
 import { useGlobalLoading } from '@/store/useGlobalLoading';
 import { useUserStore } from '@/store/userStore';
 import { AccountFormModal } from './AccountFormModal';
@@ -21,8 +26,33 @@ export default function AccountsTable() {
 
   const handleEditUser = (User: UserResponse) => {
     setMode('edit');
-    setSelectedUser(User);
-    setModalFormUser(true);
+    fetchUserDetail(User.id);
+  };
+
+  const fetchUserDetail = async (id: string) => {
+    try {
+      showLoading();
+      const response = await getUserDetail({ id });
+      setSelectedUser(response);
+      setModalFormUser(true);
+    } catch (error: any) {
+      let errorMessage = 'Something went wrong';
+      // console.log('error', error);
+      if (error.response) {
+        // Backend responded with error status
+        if (error.response.data?.message) {
+          errorMessage = error.response.data?.message;
+        }
+      }
+      notifications.show({
+        title: 'Error',
+        message: errorMessage,
+        color: 'red',
+        autoClose: 3000,
+      });
+    } finally {
+      hideLoading();
+    }
   };
 
   const handleUpdateUser = async (id: string, values: UserFormValues) => {

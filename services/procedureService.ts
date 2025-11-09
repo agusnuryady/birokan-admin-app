@@ -49,6 +49,31 @@ export interface ProcedureStepInput {
   linkURL?: string;
 }
 
+export enum QuestionType {
+  TEXT = 'TEXT',
+  NUMBER = 'NUMBER',
+  DATE = 'DATE',
+  SELECT = 'SELECT',
+  MULTISELECT = 'MULTISELECT',
+  FILE = 'FILE',
+}
+export interface ProcedureQuestionInput {
+  id?: string;
+  label?: string;
+  description?: string;
+  questionText: string;
+  type: QuestionType;
+  required: boolean;
+  options: string[];
+}
+
+export interface ProcedureDeclarationInput {
+  id?: string;
+  title: string;
+  boldText?: string;
+  content?: string;
+}
+
 /* ----------------------- Form Values for Frontend ------------------------ */
 export interface ProcedureFormValues {
   id?: string;
@@ -64,6 +89,8 @@ export interface ProcedureFormValues {
   documents: ProcedureDocumentInput[];
   places: ProcedurePlaceInput[];
   steps: ProcedureStepInput[];
+  questions: ProcedureQuestionInput[];
+  declarations: ProcedureDeclarationInput[];
 }
 
 /* ----------------------- Response Models ----------------------- */
@@ -84,6 +111,8 @@ export interface ProcedureResponse {
   places?: ProcedurePlaceInput[];
   steps?: ProcedureStepInput[];
   requirements?: ProcedureRequirementInput[];
+  questions: ProcedureQuestionInput[];
+  declarations: ProcedureDeclarationInput[];
 }
 
 /* ----------------------- Query & Pagination ----------------------- */
@@ -196,12 +225,8 @@ export async function createProcedure(values: ProcedureFormValues) {
     if (step.order !== undefined) {
       formData.append(`steps[${i}][order]`, String(step.order));
     }
-    if (step.group) {
-      formData.append(`steps[${i}][group]`, step.group);
-    }
-    if (step.linkURL) {
-      formData.append(`steps[${i}][linkURL]`, step.linkURL);
-    }
+    formData.append(`steps[${i}][group]`, step.group ?? '');
+    formData.append(`steps[${i}][linkURL]`, step.linkURL ?? '');
 
     // image file (optional)
     if (step.image instanceof File) {
@@ -209,12 +234,40 @@ export async function createProcedure(values: ProcedureFormValues) {
     }
   });
 
-  // // ✅ Append all step images
-  // values.steps.forEach((step) => {
-  //   if (step.image instanceof File) {
-  //     formData.append('images', step.image);
-  //   }
-  // });
+  /** ---------------------- QUESTIONS ---------------------- **/
+  (values.questions ?? []).forEach((question, i) => {
+    if (question.label !== undefined) {
+      formData.append(`questions[${i}][label]`, String(question.label));
+    }
+    if (question.description !== undefined) {
+      formData.append(`questions[${i}][description]`, String(question.description));
+    }
+    if (question.questionText !== undefined) {
+      formData.append(`questions[${i}][questionText]`, String(question.questionText));
+    }
+    if (question.type !== undefined) {
+      formData.append(`questions[${i}][type]`, String(question.type));
+    }
+    if (question.required !== undefined) {
+      formData.append(`questions[${i}][required]`, String(question.required));
+    }
+    if (question.options !== undefined) {
+      formData.append(`questions[${i}][options]`, JSON.stringify(question.options));
+    }
+  });
+
+  /** ---------------------- DECLARATIONS ---------------------- **/
+  (values.declarations ?? []).forEach((declaration, i) => {
+    if (declaration.title !== undefined) {
+      formData.append(`declarations[${i}][title]`, String(declaration.title));
+    }
+    if (declaration.boldText !== undefined) {
+      formData.append(`declarations[${i}][boldText]`, String(declaration.boldText));
+    }
+    if (declaration.content !== undefined) {
+      formData.append(`declarations[${i}][content]`, String(declaration.content));
+    }
+  });
 
   // ✅ Send multipart/form-data
   const { data } = await api.post<ProcedureResponse>('/v1/procedures/admin/create', formData, {
@@ -235,19 +288,17 @@ export async function updateProcedure(id: string, values: ProcedureFormValues) {
   formData.append('name', values.name);
   formData.append('slug', values.slug);
 
-  if (values.description) {
-    formData.append('description', values.description);
-  }
+  formData.append('description', values.description ?? '');
   if (values.isActive !== undefined) {
     formData.append('isActive', String(values.isActive));
   }
   if (values.isAssistant !== undefined) {
     formData.append('isAssistant', String(values.isAssistant));
   }
-  if (values.duration !== undefined) {
+  if (values.duration) {
     formData.append('duration', String(values.duration));
   }
-  if (values.cost !== undefined) {
+  if (values.cost) {
     formData.append('cost', String(values.cost));
   }
 
@@ -269,9 +320,7 @@ export async function updateProcedure(id: string, values: ProcedureFormValues) {
     if (doc.required !== undefined) {
       formData.append(`documents[${i}][required]`, String(doc.required));
     }
-    if (doc.directoryId !== undefined && doc.directoryId !== null) {
-      formData.append(`documents[${i}][directoryId]`, String(doc.directoryId));
-    }
+    formData.append(`documents[${i}][directoryId]`, String(doc.directoryId ?? ''));
   });
 
   /** ---------------------- PLACES ---------------------- **/
@@ -294,12 +343,8 @@ export async function updateProcedure(id: string, values: ProcedureFormValues) {
     if (step.order !== undefined) {
       formData.append(`steps[${i}][order]`, String(step.order));
     }
-    if (step.group) {
-      formData.append(`steps[${i}][group]`, step.group);
-    }
-    if (step.linkURL) {
-      formData.append(`steps[${i}][linkURL]`, step.linkURL);
-    }
+    formData.append(`steps[${i}][group]`, step.group ?? '');
+    formData.append(`steps[${i}][linkURL]`, step.linkURL ?? '');
 
     // ✅ Handle image properly
     if (step.image instanceof File) {
@@ -335,6 +380,35 @@ export async function updateProcedure(id: string, values: ProcedureFormValues) {
       // No image at all
       formData.append(`steps[${i}][imageUrl]`, '');
     }
+  });
+
+  /** ---------------------- QUESTIONS ---------------------- **/
+  (values.questions ?? []).forEach((question, i) => {
+    if (question.label !== undefined) {
+      formData.append(`questions[${i}][label]`, String(question.label));
+    }
+    formData.append(`questions[${i}][description]`, String(question.description ?? ''));
+    if (question.questionText !== undefined) {
+      formData.append(`questions[${i}][questionText]`, String(question.questionText));
+    }
+    if (question.type !== undefined) {
+      formData.append(`questions[${i}][type]`, String(question.type));
+    }
+    if (question.required !== undefined) {
+      formData.append(`questions[${i}][required]`, String(question.required));
+    }
+    if (question.options !== undefined) {
+      formData.append(`questions[${i}][options]`, JSON.stringify(question.options));
+    }
+  });
+
+  /** ---------------------- DECLARATIONS ---------------------- **/
+  (values.declarations ?? []).forEach((declaration, i) => {
+    if (declaration.title !== undefined) {
+      formData.append(`declarations[${i}][title]`, String(declaration.title));
+    }
+    formData.append(`declarations[${i}][boldText]`, String(declaration.boldText ?? ''));
+    formData.append(`declarations[${i}][content]`, String(declaration.content ?? ''));
   });
 
   // ✅ Send multipart/form-data
