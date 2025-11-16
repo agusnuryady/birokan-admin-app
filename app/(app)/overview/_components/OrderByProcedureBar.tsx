@@ -58,12 +58,12 @@ export default function OrderByProcedureBar({ data }: { data: Item[] }) {
               <LabelList
                 dataKey="value"
                 position="right"
-                formatter={(label: React.ReactNode) => {
-                  if (typeof label === 'number') {
-                    return label >= 1000 ? `${Math.round(label / 1000)}K` : label;
-                  }
-                  return label;
-                }}
+                // formatter={(label: React.ReactNode) => {
+                //   if (typeof label === 'number') {
+                //     return label >= 1000 ? `${Math.round(label / 1000)}K` : label;
+                //   }
+                //   return label;
+                // }}
               />
             </Bar>
           </BarChart>

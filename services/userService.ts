@@ -88,6 +88,9 @@ export async function updateUserAdmin(id: string, payload: UserFormValues) {
   const formData = new FormData();
 
   // 🧩 Base fields
+  if (payload.phoneNumber !== undefined) {
+    formData.append('phoneNumber', payload.phoneNumber);
+  }
   if (payload.role !== undefined) {
     formData.append('role', payload.role);
   }

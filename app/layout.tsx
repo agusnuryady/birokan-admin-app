@@ -4,7 +4,7 @@ import '@mantine/dates/styles.css';
 import '@mantine/tiptap/styles.css';
 import '../styles/globals.css';
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { ColorSchemeScript, mantineHtmlProps, MantineProvider } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
@@ -34,7 +34,7 @@ export default function RootLayout({ children }: { children: any }) {
         <MantineProvider theme={theme}>
           <Notifications position="top-center" />
           <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!}>
-            {children}
+            <Suspense>{children}</Suspense>
           </GoogleOAuthProvider>
           <GlobalLoadingOverlay />
         </MantineProvider>

@@ -40,6 +40,7 @@ export function AccountFormModal({
 
   const form = useForm<UserFormValues>({
     initialValues: {
+      phoneNumber: '',
       role: '',
       isActive: true,
       isAgent: true,
@@ -67,6 +68,7 @@ export function AccountFormModal({
         form.setValues({
           ...form.values,
           ...initialValues,
+          phoneNumber: initialValues.phoneNumber || '',
           role: initialValues?.role || '',
           isActive: initialValues?.isActive ?? true,
           isAgent: initialValues?.isAgent ?? false,
@@ -287,14 +289,24 @@ export function AccountFormModal({
             </Grid.Col>
 
             <Grid.Col span={6}>
-              <Stack gap={2}>
-                <Text size="xs" c="dimmed">
-                  Phone Number
-                </Text>
-                <Text size="sm" fw={600}>
-                  {initialValues?.phoneNumber || '-'}
-                </Text>
-              </Stack>
+              {form.values.isAgent ? (
+                <TextInput
+                  label="Personal Phone Number"
+                  placeholder="Enter personal phone number"
+                  inputMode="tel"
+                  required
+                  {...form.getInputProps('phoneNumber')}
+                />
+              ) : (
+                <Stack gap={2}>
+                  <Text size="xs" c="dimmed">
+                    Phone Number
+                  </Text>
+                  <Text size="sm" fw={600}>
+                    {initialValues?.phoneNumber || '-'}
+                  </Text>
+                </Stack>
+              )}
             </Grid.Col>
             <Grid.Col span={6}>
               <Stack gap={2}>
@@ -492,6 +504,7 @@ export function AccountFormModal({
               <TextInput
                 label="Relative Phone Number"
                 placeholder="Enter relative phone number"
+                inputMode="tel"
                 required
                 {...form.getInputProps('agent.relativePhoneNumber')}
               />

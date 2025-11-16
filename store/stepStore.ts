@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { notifications } from '@mantine/notifications';
 import { getSteps, PaginatedResponse, StepQuery, StepResponse } from '@/services/stepService';
+import { notifyApiError } from '@/utils/handleApiError';
 
 interface StepState {
   steps: StepResponse[];
@@ -47,20 +47,7 @@ export const useStepStore = create<StepState>((set, get) => ({
         query: merged,
       });
     } catch (error: any) {
-      let errorMessage = 'Something went wrong';
-      // console.log('error', error);
-      if (error.response) {
-        // Backend responded with error status
-        if (error.response.data?.message) {
-          errorMessage = error.response.data?.message;
-        }
-      }
-      notifications.show({
-        title: 'Error',
-        message: errorMessage,
-        color: 'red',
-        autoClose: 3000,
-      });
+      notifyApiError(error);
     } finally {
       set({ loading: false });
     }

@@ -1,11 +1,11 @@
 import { create } from 'zustand';
-import { notifications } from '@mantine/notifications';
 import {
   DocumentResponse,
   getDocuments,
   GetDocumentsParams,
   PaginatedResponse,
 } from '@/services/documentService';
+import { notifyApiError } from '@/utils/handleApiError';
 
 interface DocumenState {
   documents: DocumentResponse[];
@@ -58,20 +58,7 @@ export const useDocumenStore = create<DocumenState>((set, get) => ({
         };
       });
     } catch (error: any) {
-      let errorMessage = 'Something went wrong';
-      // console.log('error', error);
-      if (error.response) {
-        // Backend responded with error status
-        if (error.response.data?.message) {
-          errorMessage = error.response.data?.message;
-        }
-      }
-      notifications.show({
-        title: 'Error',
-        message: errorMessage,
-        color: 'red',
-        autoClose: 3000,
-      });
+      notifyApiError(error);
     } finally {
       set({ loading: false });
     }

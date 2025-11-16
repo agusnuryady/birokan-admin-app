@@ -13,6 +13,7 @@ import {
 } from '@/services/userService';
 import { useGlobalLoading } from '@/store/useGlobalLoading';
 import { useUserStore } from '@/store/userStore';
+import { notifyApiError } from '@/utils/handleApiError';
 import { AccountFormModal } from './AccountFormModal';
 
 export default function AccountsTable() {
@@ -36,20 +37,7 @@ export default function AccountsTable() {
       setSelectedUser(response);
       setModalFormUser(true);
     } catch (error: any) {
-      let errorMessage = 'Something went wrong';
-      // console.log('error', error);
-      if (error.response) {
-        // Backend responded with error status
-        if (error.response.data?.message) {
-          errorMessage = error.response.data?.message;
-        }
-      }
-      notifications.show({
-        title: 'Error',
-        message: errorMessage,
-        color: 'red',
-        autoClose: 3000,
-      });
+      notifyApiError(error);
     } finally {
       hideLoading();
     }
@@ -66,20 +54,7 @@ export default function AccountsTable() {
         color: 'green',
       });
     } catch (error: any) {
-      let errorMessage = 'Something went wrong';
-      // console.log('error', error);
-      if (error.response) {
-        // Backend responded with error status
-        if (error.response.data?.message) {
-          errorMessage = error.response.data?.message;
-        }
-      }
-      notifications.show({
-        title: 'Error',
-        message: errorMessage,
-        color: 'red',
-        autoClose: 3000,
-      });
+      notifyApiError(error);
     } finally {
       hideLoading();
     }

@@ -13,6 +13,7 @@ import {
 } from '@/services/procedureService';
 import { useProcedureStore } from '@/store/procedureStore';
 import { useGlobalLoading } from '@/store/useGlobalLoading';
+import { notifyApiError } from '@/utils/handleApiError';
 import ProcedureDetail from './_components/ProcedureDetail'; // adjust path if needed
 import ProcedureModal from './_components/ProcedureModal';
 
@@ -46,20 +47,7 @@ export default function ProcedureDetailPage() {
       const response = await getProcedureDetail({ id });
       setProcedureDetail(response);
     } catch (error: any) {
-      let errorMessage = 'Something went wrong';
-      // console.log('error', error);
-      if (error.response) {
-        // Backend responded with error status
-        if (error.response.data?.message) {
-          errorMessage = error.response.data?.message;
-        }
-      }
-      notifications.show({
-        title: 'Error',
-        message: errorMessage,
-        color: 'red',
-        autoClose: 3000,
-      });
+      notifyApiError(error);
     } finally {
       hideLoading();
     }
@@ -76,20 +64,7 @@ export default function ProcedureDetailPage() {
       });
       await router.back();
     } catch (error: any) {
-      let errorMessage = 'Something went wrong';
-      // console.log('error', error);
-      if (error.response) {
-        // Backend responded with error status
-        if (error.response.data?.message) {
-          errorMessage = error.response.data?.message;
-        }
-      }
-      notifications.show({
-        title: 'Error',
-        message: errorMessage,
-        color: 'red',
-        autoClose: 3000,
-      });
+      notifyApiError(error);
     } finally {
       hideLoading();
     }
@@ -107,20 +82,7 @@ export default function ProcedureDetailPage() {
         color: 'green',
       });
     } catch (error: any) {
-      let errorMessage = 'Something went wrong';
-      // console.log('error', error);
-      if (error.response) {
-        // Backend responded with error status
-        if (error.response.data?.message) {
-          errorMessage = error.response.data?.message;
-        }
-      }
-      notifications.show({
-        title: 'Error',
-        message: errorMessage,
-        color: 'red',
-        autoClose: 3000,
-      });
+      notifyApiError(error);
     } finally {
       hideLoading();
     }

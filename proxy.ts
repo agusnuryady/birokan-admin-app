@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const accessToken = req.cookies.get('accessToken')?.value;
   const isVerified = req.cookies.get('isVerified')?.value; // if you set it as cookie
   const hasPin = req.cookies.get('hasPin')?.value; // if you set it as cookie

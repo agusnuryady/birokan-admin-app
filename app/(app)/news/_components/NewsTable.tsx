@@ -15,6 +15,7 @@ import {
 } from '@/services/articleService';
 import { useArticleStore } from '@/store/articleStore';
 import { useGlobalLoading } from '@/store/useGlobalLoading';
+import { notifyApiError } from '@/utils/handleApiError';
 import { ArticleFormModal } from './ArticleFormModal';
 
 export default function NewsTable() {
@@ -63,20 +64,7 @@ export default function NewsTable() {
         color: 'green',
       });
     } catch (error: any) {
-      let errorMessage = 'Something went wrong';
-      // console.log('error', error);
-      if (error.response) {
-        // Backend responded with error status
-        if (error.response.data?.message) {
-          errorMessage = error.response.data?.message;
-        }
-      }
-      notifications.show({
-        title: 'Error',
-        message: errorMessage,
-        color: 'red',
-        autoClose: 3000,
-      });
+      notifyApiError(error);
     } finally {
       hideLoading();
     }
@@ -93,20 +81,7 @@ export default function NewsTable() {
         color: 'green',
       });
     } catch (error: any) {
-      let errorMessage = 'Something went wrong';
-      // console.log('error', error);
-      if (error.response) {
-        // Backend responded with error status
-        if (error.response.data?.message) {
-          errorMessage = error.response.data?.message;
-        }
-      }
-      notifications.show({
-        title: 'Error',
-        message: errorMessage,
-        color: 'red',
-        autoClose: 3000,
-      });
+      notifyApiError(error);
     } finally {
       hideLoading();
     }
@@ -123,20 +98,7 @@ export default function NewsTable() {
         color: 'green',
       });
     } catch (error: any) {
-      let errorMessage = 'Something went wrong';
-      // console.log('error', error);
-      if (error.response) {
-        // Backend responded with error status
-        if (error.response.data?.message) {
-          errorMessage = error.response.data?.message;
-        }
-      }
-      notifications.show({
-        title: 'Error',
-        message: errorMessage,
-        color: 'red',
-        autoClose: 3000,
-      });
+      notifyApiError(error);
     } finally {
       hideLoading();
     }

@@ -49,6 +49,14 @@ export interface ProcedureStepInput {
   linkURL?: string;
 }
 
+export interface CostOptionInput {
+  cost: number;
+  title: string;
+  desc: string;
+  minTime: number;
+  maxTime: number;
+}
+
 export enum QuestionType {
   TEXT = 'TEXT',
   NUMBER = 'NUMBER',
@@ -74,6 +82,13 @@ export interface ProcedureDeclarationInput {
   content?: string;
 }
 
+export interface CompleteOrderDeclarationInput {
+  id?: string;
+  title: string;
+  boldText?: string;
+  content?: string;
+}
+
 /* ----------------------- Form Values for Frontend ------------------------ */
 export interface ProcedureFormValues {
   id?: string;
@@ -83,14 +98,14 @@ export interface ProcedureFormValues {
   description?: string;
   isActive?: boolean;
   isAssistant?: boolean;
-  duration?: number;
-  cost?: number;
+  costOptions: CostOptionInput[];
   requirements: ProcedureRequirementInput[];
   documents: ProcedureDocumentInput[];
   places: ProcedurePlaceInput[];
   steps: ProcedureStepInput[];
   questions: ProcedureQuestionInput[];
   declarations: ProcedureDeclarationInput[];
+  completeForms: CompleteOrderDeclarationInput[];
 }
 
 /* ----------------------- Response Models ----------------------- */
@@ -102,8 +117,7 @@ export interface ProcedureResponse {
   description?: string;
   isActive: boolean;
   isAssistant?: boolean;
-  duration?: number;
-  cost?: number;
+  costOptions?: CostOptionInput[];
   createdAt: string;
   updatedAt: string;
   directoryId: string;
@@ -113,6 +127,7 @@ export interface ProcedureResponse {
   requirements?: ProcedureRequirementInput[];
   questions: ProcedureQuestionInput[];
   declarations: ProcedureDeclarationInput[];
+  completeForms: CompleteOrderDeclarationInput[];
 }
 
 /* ----------------------- Query & Pagination ----------------------- */
@@ -180,12 +195,13 @@ export async function createProcedure(values: ProcedureFormValues) {
   if (values.isAssistant !== undefined) {
     formData.append('isAssistant', String(values.isAssistant));
   }
-  if (values.duration !== undefined) {
-    formData.append('duration', String(values.duration));
-  }
-  if (values.cost !== undefined) {
-    formData.append('cost', String(values.cost));
-  }
+  (values.costOptions ?? []).forEach((op, idx) => {
+    formData.append(`costOptions[${idx}][cost]`, String(op.cost));
+    formData.append(`costOptions[${idx}][title]`, String(op.title));
+    formData.append(`costOptions[${idx}][desc]`, String(op.desc));
+    formData.append(`costOptions[${idx}][minTime]`, String(op.minTime));
+    formData.append(`costOptions[${idx}][maxTime]`, String(op.maxTime));
+  });
 
   // --- Array fields ---
   (values.requirements ?? []).forEach((requirement, i) => {
@@ -269,6 +285,19 @@ export async function createProcedure(values: ProcedureFormValues) {
     }
   });
 
+  /** ---------------------- COMPLETE ORDER DECLARATIONS ---------------------- **/
+  (values.completeForms ?? []).forEach((completeForm, i) => {
+    if (completeForm.title !== undefined) {
+      formData.append(`completeForms[${i}][title]`, String(completeForm.title));
+    }
+    if (completeForm.boldText !== undefined) {
+      formData.append(`completeForms[${i}][boldText]`, String(completeForm.boldText));
+    }
+    if (completeForm.content !== undefined) {
+      formData.append(`completeForms[${i}][content]`, String(completeForm.content));
+    }
+  });
+
   // ✅ Send multipart/form-data
   const { data } = await api.post<ProcedureResponse>('/v1/procedures/admin/create', formData, {
     headers: {
@@ -295,15 +324,19 @@ export async function updateProcedure(id: string, values: ProcedureFormValues) {
   if (values.isAssistant !== undefined) {
     formData.append('isAssistant', String(values.isAssistant));
   }
-  if (values.duration) {
-    formData.append('duration', String(values.duration));
-  }
-  if (values.cost) {
-    formData.append('cost', String(values.cost));
-  }
+  (values.costOptions ?? []).forEach((op, idx) => {
+    formData.append(`costOptions[${idx}][cost]`, String(op.cost));
+    formData.append(`costOptions[${idx}][title]`, String(op.title));
+    formData.append(`costOptions[${idx}][desc]`, String(op.desc));
+    formData.append(`costOptions[${idx}][minTime]`, String(op.minTime));
+    formData.append(`costOptions[${idx}][maxTime]`, String(op.maxTime));
+  });
 
   /** ---------------------- REQUIREMENTS ---------------------- **/
   (values.requirements ?? []).forEach((requirement, i) => {
+    if (requirement.id) {
+      formData.append(`requirements[${i}][id]`, requirement.id);
+    }
     if (requirement.description) {
       formData.append(`requirements[${i}][description]`, requirement.description);
     }
@@ -311,6 +344,9 @@ export async function updateProcedure(id: string, values: ProcedureFormValues) {
 
   /** ---------------------- DOCUMENTS ---------------------- **/
   (values.documents ?? []).forEach((doc, i) => {
+    if (doc.id) {
+      formData.append(`documents[${i}][id]`, doc.id);
+    }
     if (doc.documentId) {
       formData.append(`documents[${i}][documentId]`, doc.documentId);
     }
@@ -325,6 +361,9 @@ export async function updateProcedure(id: string, values: ProcedureFormValues) {
 
   /** ---------------------- PLACES ---------------------- **/
   (values.places ?? []).forEach((place, i) => {
+    if (place.id) {
+      formData.append(`places[${i}][id]`, place.id);
+    }
     if (place.placeId) {
       formData.append(`places[${i}][placeId]`, place.placeId);
     }
@@ -384,6 +423,9 @@ export async function updateProcedure(id: string, values: ProcedureFormValues) {
 
   /** ---------------------- QUESTIONS ---------------------- **/
   (values.questions ?? []).forEach((question, i) => {
+    if (question.id) {
+      formData.append(`questions[${i}][id]`, question.id);
+    }
     if (question.label !== undefined) {
       formData.append(`questions[${i}][label]`, String(question.label));
     }
@@ -404,11 +446,26 @@ export async function updateProcedure(id: string, values: ProcedureFormValues) {
 
   /** ---------------------- DECLARATIONS ---------------------- **/
   (values.declarations ?? []).forEach((declaration, i) => {
+    if (declaration.id) {
+      formData.append(`declarations[${i}][id]`, declaration.id);
+    }
     if (declaration.title !== undefined) {
       formData.append(`declarations[${i}][title]`, String(declaration.title));
     }
     formData.append(`declarations[${i}][boldText]`, String(declaration.boldText ?? ''));
     formData.append(`declarations[${i}][content]`, String(declaration.content ?? ''));
+  });
+
+  /** ---------------------- COMPLETE ORDER DECLARATIONS ---------------------- **/
+  (values.completeForms ?? []).forEach((completeForm, i) => {
+    if (completeForm.id) {
+      formData.append(`completeForms[${i}][id]`, completeForm.id);
+    }
+    if (completeForm.title !== undefined) {
+      formData.append(`completeForms[${i}][title]`, String(completeForm.title));
+    }
+    formData.append(`completeForms[${i}][boldText]`, String(completeForm.boldText ?? ''));
+    formData.append(`completeForms[${i}][content]`, String(completeForm.content ?? ''));
   });
 
   // ✅ Send multipart/form-data

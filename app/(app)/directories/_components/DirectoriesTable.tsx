@@ -15,6 +15,7 @@ import {
 } from '@/services/directoryService';
 import { useDirectoryStore } from '@/store/directoryStore';
 import { useGlobalLoading } from '@/store/useGlobalLoading';
+import { notifyApiError } from '@/utils/handleApiError';
 import { DirectoryFormModal, DirectoryFormValues } from './DirectoryFormModal';
 
 export default function DirectoriesTable() {
@@ -67,20 +68,7 @@ export default function DirectoriesTable() {
         color: 'green',
       });
     } catch (error: any) {
-      let errorMessage = 'Something went wrong';
-      // console.log('error', error);
-      if (error.response) {
-        // Backend responded with error status
-        if (error.response.data?.message) {
-          errorMessage = error.response.data?.message;
-        }
-      }
-      notifications.show({
-        title: 'Error',
-        message: errorMessage,
-        color: 'red',
-        autoClose: 3000,
-      });
+      notifyApiError(error);
     } finally {
       hideLoading();
     }
@@ -97,20 +85,7 @@ export default function DirectoriesTable() {
         color: 'green',
       });
     } catch (error: any) {
-      let errorMessage = 'Something went wrong';
-      // console.log('error', error);
-      if (error.response) {
-        // Backend responded with error status
-        if (error.response.data?.message) {
-          errorMessage = error.response.data?.message;
-        }
-      }
-      notifications.show({
-        title: 'Error',
-        message: errorMessage,
-        color: 'red',
-        autoClose: 3000,
-      });
+      notifyApiError(error);
     } finally {
       hideLoading();
     }
@@ -127,20 +102,7 @@ export default function DirectoriesTable() {
         color: 'green',
       });
     } catch (error: any) {
-      let errorMessage = 'Something went wrong';
-      // console.log('error', error);
-      if (error.response) {
-        // Backend responded with error status
-        if (error.response.data?.message) {
-          errorMessage = error.response.data?.message;
-        }
-      }
-      notifications.show({
-        title: 'Error',
-        message: errorMessage,
-        color: 'red',
-        autoClose: 3000,
-      });
+      notifyApiError(error);
     } finally {
       hideLoading();
     }

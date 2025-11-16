@@ -1,18 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+// import { useRouter } from 'next/navigation';
 import { Anchor, Group, Paper, PinInput, Stack, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { hashPin } from '@/lib/crypto';
-import { createPin, requestOtp, verifyOtp, verifyPin } from '@/services/authService';
+// import { hashPin } from '@/lib/crypto';
+import { verifyOtp } from '@/services/authService';
 import { useAuthStore } from '@/store/authStore';
 import maskEmail from '@/utils/maskEmail';
-import { loginAction } from '../login/actions';
+// import { loginAction } from '../login/actions';
 import classes from './notification.module.css';
 
 export default function OtpResetPinPage() {
-  const router = useRouter();
+  // const router = useRouter();
   const { user, setLoading } = useAuthStore();
   const [otp, setOtp] = useState('');
   const [timer, setTimer] = useState(60); // countdown in seconds
@@ -29,7 +29,7 @@ export default function OtpResetPinPage() {
         color: 'green',
       });
     } catch (err) {
-      console.error('Failed to send OTP:', err);
+      // console.error('Failed to send OTP:', err);
     } finally {
       setLoading(false);
       setTimer(60); // reset countdown after sending
@@ -40,12 +40,13 @@ export default function OtpResetPinPage() {
     try {
       setLoading(true);
       // TODO: call your backend API here
-      const res = await verifyOtp(otp);
-      console.log('res', res);
+      // const res =
+      await verifyOtp(otp);
+      // console.log('res', res);
       setLoading(false);
       // router.navigate('/');
     } catch (err: any) {
-      console.error('Failed to send OTP:', err);
+      // console.error('Failed to send OTP:', err);
       setLoading(false);
       if (err?.response?.data?.message === 'Invalid OTP') {
         notifications.show({

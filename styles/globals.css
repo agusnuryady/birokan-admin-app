@@ -7,6 +7,6 @@
 }
 
 .hover-card:hover {
-  box-shadow: 0 0 20px rgba(37, 99, 235, 0.5); /* glowing blue */
+  box-shadow: 0 0 20px rgb(37, 99, 235, 0.5); /* glowing blue */
   transform: translateY(-4px);
 }

@@ -1,14 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { IconCheck, IconFilter, IconPlus, IconSearch, IconX } from '@tabler/icons-react';
+import dynamic from 'next/dynamic';
+import { IconPlus, IconSearch, IconX } from '@tabler/icons-react';
 import {
   ActionIcon,
   Box,
   Button,
   Group,
   Loader,
-  Menu,
   Pagination,
   ScrollArea,
   Stack,
@@ -16,6 +16,8 @@ import {
   Text,
   TextInput,
 } from '@mantine/core';
+
+const FilterMenu = dynamic(() => import('./FilterMenu'), { ssr: false });
 
 type Column<T> = {
   accessor: keyof T | string;
@@ -27,7 +29,12 @@ type Column<T> = {
 type Filter<T> = {
   accessor: keyof T | string;
   title: string;
-  options: string[];
+  options?: string[];
+  customFilters?: (params: {
+    value?: any;
+    onChange?: (v: any) => void;
+    close: () => void;
+  }) => React.ReactNode;
 };
 
 type DataTableProps<T> = {
@@ -49,8 +56,6 @@ type DataTableProps<T> = {
   onPageChange?: (page: number) => void;
   onSearch?: (value: string) => void;
   onFilterChange?: (accessor: string, value: string | Record<string, string>) => void;
-
-  // 🔹 NEW customization
   rowKey: (row: T) => string | number;
   onRowClick?: (row: T) => void;
 };
@@ -114,33 +119,11 @@ export default function DataTable<T>({
         <Group>
           {/* 🔹 Filters */}
           {filters.length > 0 && (
-            <Menu shadow="md" width={200} closeOnItemClick={false}>
-              <Menu.Target>
-                <ActionIcon w={34} h={34} variant="outline">
-                  <IconFilter size={20} />
-                </ActionIcon>
-              </Menu.Target>
-              <Menu.Dropdown>
-                {filters.map((filter) => (
-                  <Box key={filter.accessor as string}>
-                    <Menu.Label>{filter.title}</Menu.Label>
-                    {filter.options.map((option) => {
-                      const isActive = activeFilters[filter.accessor as string] === option;
-                      return (
-                        <Menu.Item
-                          key={option}
-                          onClick={() => handleFilterClick(filter.accessor as string, option)}
-                          rightSection={isActive ? <IconCheck size={14} /> : null}
-                        >
-                          {option}
-                        </Menu.Item>
-                      );
-                    })}
-                    <Menu.Divider />
-                  </Box>
-                ))}
-              </Menu.Dropdown>
-            </Menu>
+            <FilterMenu
+              filters={filters}
+              activeFilters={activeFilters}
+              onFilterClick={handleFilterClick}
+            />
           )}
 
           {/* 🔹 Search */}

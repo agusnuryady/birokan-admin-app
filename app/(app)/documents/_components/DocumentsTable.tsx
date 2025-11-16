@@ -15,6 +15,7 @@ import {
 } from '@/services/documentService';
 import { useDocumenStore } from '@/store/documentStore';
 import { useGlobalLoading } from '@/store/useGlobalLoading';
+import { notifyApiError } from '@/utils/handleApiError';
 import { DocumentFormModal, DocumentFormValues } from './DocumentFormModal';
 
 export default function DocumentsTable() {
@@ -65,11 +66,7 @@ export default function DocumentsTable() {
         color: 'green',
       });
     } catch (error: any) {
-      let message = 'Something went wrong';
-      if (error.response?.data?.message) {
-        message = error.response.data.message;
-      }
-      notifications.show({ title: 'Error', message, color: 'red' });
+      notifyApiError(error);
     } finally {
       hideLoading();
     }
@@ -91,11 +88,7 @@ export default function DocumentsTable() {
         color: 'green',
       });
     } catch (error: any) {
-      let message = 'Something went wrong';
-      if (error.response?.data?.message) {
-        message = error.response.data.message;
-      }
-      notifications.show({ title: 'Error', message, color: 'red' });
+      notifyApiError(error);
     } finally {
       hideLoading();
     }
@@ -112,11 +105,7 @@ export default function DocumentsTable() {
         color: 'green',
       });
     } catch (error: any) {
-      let message = 'Something went wrong';
-      if (error.response?.data?.message) {
-        message = error.response.data.message;
-      }
-      notifications.show({ title: 'Error', message, color: 'red' });
+      notifyApiError(error);
     } finally {
       hideLoading();
     }
@@ -207,7 +196,7 @@ export default function DocumentsTable() {
             } else if (key === 'type') {
               fetchDocuments({
                 page: 1,
-                type: value || undefined,
+                type: (value as string) || undefined,
               });
             }
           }}

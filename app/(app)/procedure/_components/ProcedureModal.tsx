@@ -25,6 +25,7 @@ import {
   ProcedureFormValues,
   QuestionType,
 } from '@/services/procedureService';
+import { CompleteOrderDeclarationEditor } from './CompleteOrderDeclarationEditor';
 import { DeclarationEditor } from './DeclarationEditor';
 import StepList from './StepList';
 
@@ -52,12 +53,14 @@ export default function ProcedureModal({
       slug: '',
       isActive: true,
       isAssistant: false,
+      costOptions: [],
       requirements: [],
       documents: [],
       places: [],
       steps: [],
       questions: [],
       declarations: [],
+      completeForms: [],
       ...initialValues,
       description: initialValues?.description || '',
     },
@@ -76,12 +79,22 @@ export default function ProcedureModal({
           ...form.values,
           ...initialValues,
           description: initialValues?.description || '',
+          costOptions:
+            initialValues.costOptions?.map((item) => ({
+              cost: item.cost,
+              title: item.title,
+              desc: item.desc,
+              minTime: item.minTime,
+              maxTime: item.maxTime,
+            })) ?? form.values.costOptions,
           requirements:
             initialValues.requirements?.map((item) => ({
+              ...(item.id && { id: item.id }),
               description: item.description,
             })) ?? form.values.requirements,
           documents:
             initialValues.documents?.map((item) => ({
+              ...(item.id && { id: item.id }),
               documentId: item.documentId,
               amount: item.amount,
               required: item.required,
@@ -89,6 +102,7 @@ export default function ProcedureModal({
             })) ?? form.values.documents,
           places:
             initialValues.places?.map((item) => ({
+              ...(item.id && { id: item.id }),
               placeId: item.placeId,
             })) ?? form.values.places,
           steps: initialValues.steps
@@ -108,6 +122,7 @@ export default function ProcedureModal({
             : form.values.steps,
           questions:
             initialValues.questions?.map((item) => ({
+              ...(item.id && { id: item.id }),
               label: item.label,
               description: item.description,
               questionText: item.questionText,
@@ -117,11 +132,18 @@ export default function ProcedureModal({
             })) ?? form.values.questions,
           declarations:
             initialValues.declarations?.map((item) => ({
-              id: item.id ?? crypto.randomUUID(),
+              ...(item.id && { id: item.id }),
               title: item.title,
               boldText: item.boldText,
               content: item.content,
             })) ?? form.values.declarations,
+          completeForms:
+            initialValues.completeForms?.map((item) => ({
+              ...(item.id && { id: item.id }),
+              title: item.title,
+              boldText: item.boldText,
+              content: item.content,
+            })) ?? form.values.completeForms,
         } as ProcedureFormValues);
         const defaultOptions = initialValues.steps?.map((item) => item.group) || [];
         const dropdowDefault = dropdownData.stepGroup?.map((item) => item.group) || [];
@@ -134,6 +156,21 @@ export default function ProcedureModal({
   }, [opened, initialValues]);
 
   // helpers to manipulate lists (documents / places / steps)
+  const addCostOption = () =>
+    form.setValues({
+      ...form.values,
+      costOptions: [
+        ...form.values.costOptions,
+        { cost: 50000, title: '', desc: '', minTime: 1, maxTime: 1 },
+      ],
+    });
+
+  const removeCostOption = (index: number) => {
+    const costOptions = [...form.values.costOptions];
+    costOptions.splice(index, 1);
+    form.setValues({ ...form.values, costOptions });
+  };
+
   const addRequirement = () =>
     form.setValues({
       ...form.values,
@@ -198,6 +235,21 @@ export default function ProcedureModal({
     const declarations = [...form.values.declarations];
     declarations.splice(index, 1);
     form.setValues({ ...form.values, declarations });
+  };
+
+  const addCompleteForm = () =>
+    form.setValues({
+      ...form.values,
+      completeForms: [
+        ...form.values.completeForms,
+        { id: crypto.randomUUID(), title: '', boldText: '', content: '' },
+      ],
+    });
+
+  const removeCompleteForm = (index: number) => {
+    const completeForms = [...form.values.completeForms];
+    completeForms.splice(index, 1);
+    form.setValues({ ...form.values, completeForms });
   };
 
   const handleSubmit = async (values: ProcedureFormValues) => {
@@ -270,21 +322,83 @@ export default function ProcedureModal({
 
           {form.values.isAssistant && (
             <>
-              <NumberInput
-                label="Duration (in days)"
-                min={1}
-                required={form.values.isAssistant}
-                {...form.getInputProps('duration')}
-              />
-              <NumberInput
-                label="Cost of Service"
-                placeholder="Enter cost of service"
-                thousandSeparator="."
-                decimalSeparator=","
-                prefix="Rp"
-                required={form.values.isAssistant}
-                {...form.getInputProps('cost')}
-              />
+              {/* Cost Options */}
+              <Divider label="Cost Options" />
+              <Stack gap="sm">
+                {(!form.values.costOptions || form.values.costOptions.length === 0) && (
+                  <Text size="sm" c="dimmed">
+                    No cost option yet. Add one below.
+                  </Text>
+                )}
+
+                {form.values.costOptions.map((_, idx) => (
+                  <Paper key={idx} p="sm" radius="md" withBorder>
+                    <Group align="center" wrap="nowrap">
+                      <Stack style={{ flex: 1 }}>
+                        <NumberInput
+                          label="Cost of Service"
+                          placeholder="Enter cost of service"
+                          thousandSeparator="."
+                          decimalSeparator=","
+                          prefix="Rp"
+                          required={form.values.isAssistant}
+                          {...form.getInputProps(`costOptions.${idx}.cost`)}
+                        />
+                        <Group align="center" wrap="nowrap">
+                          <TextInput
+                            label="Title"
+                            placeholder="Enter cost option title"
+                            required
+                            {...form.getInputProps(`costOptions.${idx}.title`)}
+                            style={{ flex: 1 }}
+                          />
+                          <TextInput
+                            label="Description"
+                            placeholder="Enter cost option description"
+                            {...form.getInputProps(`costOptions.${idx}.desc`)}
+                            style={{ flex: 1 }}
+                          />
+                        </Group>
+                        <Group align="center" wrap="nowrap">
+                          <NumberInput
+                            label="Minimum Duration"
+                            min={1}
+                            required={form.values.isAssistant}
+                            {...form.getInputProps(`costOptions.${idx}.minTime`)}
+                            onChange={(e) => {
+                              form.setFieldValue(`costOptions.${idx}.minTime`, Number(e));
+                              if (Number(e) > form.values.costOptions[idx].minTime) {
+                                form.setFieldValue(`costOptions.${idx}.maxTime`, Number(e));
+                              }
+                            }}
+                            style={{ flex: 1 }}
+                          />
+                          <NumberInput
+                            label="Maximum Duration"
+                            min={1}
+                            required={form.values.isAssistant}
+                            {...form.getInputProps(`costOptions.${idx}.maxTime`)}
+                            style={{ flex: 1 }}
+                          />
+                        </Group>
+                      </Stack>
+
+                      <ActionIcon
+                        color="red"
+                        variant="light"
+                        onClick={() => removeCostOption(idx)}
+                        aria-label="Delete place"
+                      >
+                        <IconTrash size={16} />
+                      </ActionIcon>
+                    </Group>
+                  </Paper>
+                ))}
+
+                <Button variant="light" onClick={addCostOption}>
+                  + Add New Cost Option
+                </Button>
+              </Stack>
             </>
           )}
 
@@ -550,6 +664,30 @@ export default function ProcedureModal({
 
                 <Button variant="light" onClick={addDeclaration}>
                   + Add New Declaration
+                </Button>
+              </Stack>
+
+              {/* Complete Order Declarations */}
+              <Divider label="Complete Order Declarations" />
+              <Stack gap="sm">
+                {form.values.completeForms.length === 0 && (
+                  <Text size="sm" c="dimmed">
+                    No complete order declarations yet. Add one below.
+                  </Text>
+                )}
+
+                {form.values.completeForms.map((declaration, idx) => (
+                  <CompleteOrderDeclarationEditor
+                    key={declaration.id}
+                    idx={idx}
+                    declaration={declaration}
+                    form={form}
+                    removeDeclaration={removeCompleteForm}
+                  />
+                ))}
+
+                <Button variant="light" onClick={addCompleteForm}>
+                  + Add New Complete Order Declaration
                 </Button>
               </Stack>
             </>

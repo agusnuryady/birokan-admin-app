@@ -1,11 +1,11 @@
 import { create } from 'zustand';
-import { notifications } from '@mantine/notifications';
 import {
   DirectoryQuery,
   DirectoryResponse,
   getDirectories,
   PaginatedResponse,
 } from '@/services/directoryService';
+import { notifyApiError } from '@/utils/handleApiError';
 
 interface DirectoryState {
   directories: DirectoryResponse[];
@@ -52,20 +52,7 @@ export const useDirectoryStore = create<DirectoryState>((set, get) => ({
         query: merged,
       });
     } catch (error: any) {
-      let errorMessage = 'Something went wrong';
-      // console.log('error', error);
-      if (error.response) {
-        // Backend responded with error status
-        if (error.response.data?.message) {
-          errorMessage = error.response.data?.message;
-        }
-      }
-      notifications.show({
-        title: 'Error',
-        message: errorMessage,
-        color: 'red',
-        autoClose: 3000,
-      });
+      notifyApiError(error);
     } finally {
       set({ loading: false });
     }

@@ -7,54 +7,52 @@ import { notifications } from '@mantine/notifications';
 import DataTable from '@/components/DataTable';
 import { DeleteFlowModal } from '@/components/DeleteFlowModal';
 import {
-  createPlace,
-  deletePlaces,
-  PlaceResponse,
-  updatePlace,
-  UpdatePlaceDto,
-} from '@/services/placeService';
-import { usePlaceStore } from '@/store/placeStore';
+  createVoucher,
+  deleteVouchers,
+  updateVoucher,
+  VoucherResponse,
+} from '@/services/voucherService';
 import { useGlobalLoading } from '@/store/useGlobalLoading';
-import { PlaceFormValues } from '@/types/place';
+import { useVoucherStore } from '@/store/voucherStore';
 import { notifyApiError } from '@/utils/handleApiError';
-import { PlaceFormModal } from './PlaceFormModal';
+import { VoucherFormModal, VoucherFormValues } from './VoucherFormModal';
 
-export default function PlacesTable() {
-  const { places, total, page, limit, loading, searchPlaces, setSearchPlaces, fetchPlaces } =
-    usePlaceStore();
+export default function VouchersTable() {
+  const { vouchers, total, page, limit, loading, search, setSearch, fetchVouchers } =
+    useVoucherStore();
 
   const { showLoading, hideLoading } = useGlobalLoading();
   const [modalDelete, setModalDelete] = useState(false);
   const [modalForm, setModalForm] = useState(false);
   const [mode, setMode] = useState<'add' | 'edit'>('add');
-  const [selectedPlace, setSelectedPlace] = useState<PlaceResponse | undefined>(undefined);
+  const [selectedVoucher, setSelectedVoucher] = useState<VoucherResponse | undefined>(undefined);
 
   /* ----------------------------- Handlers ----------------------------- */
   const handleAdd = () => {
     setMode('add');
-    setSelectedPlace(undefined);
+    setSelectedVoucher(undefined);
     setModalForm(true);
   };
 
-  const handleEdit = (place: PlaceResponse) => {
+  const handleEdit = (voucher: VoucherResponse) => {
     setMode('edit');
-    setSelectedPlace(place);
+    setSelectedVoucher(voucher);
     setModalForm(true);
   };
 
-  const handleDelete = (place: PlaceResponse) => {
-    setSelectedPlace(place);
+  const handleDelete = (voucher: VoucherResponse) => {
+    setSelectedVoucher(voucher);
     setModalDelete(true);
   };
 
-  const handleSubmit = async (values: PlaceFormValues) => {
+  const handleSubmit = async (values: VoucherFormValues) => {
     try {
       showLoading();
-      const response = await createPlace(values);
-      await fetchPlaces({ page: 1 });
+      const response = await createVoucher(values);
+      await fetchVouchers({ page: 1 });
       notifications.show({
         title: 'Success',
-        message: `Place "${response.name}" created successfully 🎉`,
+        message: `Voucher ${response.title} created successfully 🎉`,
         color: 'green',
       });
     } catch (error: any) {
@@ -64,18 +62,14 @@ export default function PlacesTable() {
     }
   };
 
-  const handleUpdate = async (id: string, values: PlaceFormValues) => {
+  const handleUpdate = async (id: string, values: VoucherFormValues) => {
     try {
       showLoading();
-      const payload: UpdatePlaceDto = {
-        name: values.name,
-        desc: values.desc,
-      };
-      const response = await updatePlace(id, payload);
-      await fetchPlaces();
+      const response = await updateVoucher(id, values);
+      await fetchVouchers();
       notifications.show({
         title: 'Success',
-        message: `Place "${response.name}" updated successfully 🎉`,
+        message: `Voucher ${response.title} updated successfully 🎉`,
         color: 'green',
       });
     } catch (error: any) {
@@ -88,11 +82,11 @@ export default function PlacesTable() {
   const handleConfirmDelete = async (ids: string[]) => {
     try {
       showLoading();
-      await deletePlaces(ids);
-      await fetchPlaces();
+      await deleteVouchers(ids);
+      await fetchVouchers();
       notifications.show({
         title: 'Success',
-        message: `Place deleted successfully 🎉`,
+        message: 'Voucher deleted successfully 🎉',
         color: 'green',
       });
     } catch (error: any) {
@@ -106,28 +100,29 @@ export default function PlacesTable() {
   return (
     <>
       <Card shadow="sm" padding="lg" radius="md" withBorder>
-        <DataTable<PlaceResponse>
-          title="Places"
-          desc="List of registered places in the Birokan app"
-          data={places}
+        <DataTable<VoucherResponse>
+          title="Vouchers"
+          desc="List of vouchers for Birokan app"
+          data={vouchers}
           columns={[
-            { accessor: 'id', title: 'ID' },
-            { accessor: 'name', title: 'Name' },
+            { accessor: 'code', title: 'Code' },
+            { accessor: 'title', title: 'Title' },
+            { accessor: 'discountType', title: 'Discount Type' },
+            { accessor: 'discountValue', title: 'Value' },
+            { accessor: 'usedCount', title: 'Used Count' },
             {
-              accessor: 'desc',
-              title: 'Description',
+              accessor: 'isActive',
+              title: 'Status',
               render: (row) => (
-                <Text lineClamp={2} size="sm" maw={200}>
-                  {row.desc || '-'}
+                <Text c={row.isActive ? 'green' : 'red'}>
+                  {row.isActive ? 'Active' : 'Inactive'}
                 </Text>
               ),
             },
-            { accessor: 'locationCount', title: 'Locations' },
             {
               accessor: 'createdAt',
               title: 'Created At',
-              render: (row) =>
-                row.createdAt ? new Date(row.createdAt).toLocaleDateString('en-GB') : '-',
+              render: (row) => new Date(row.createdAt).toLocaleDateString('en-GB'),
             },
             {
               accessor: 'actions',
@@ -164,45 +159,71 @@ export default function PlacesTable() {
               ),
             },
           ]}
+          filters={[
+            {
+              accessor: 'discountType',
+              title: 'Discount Type',
+              options: ['PERCENTAGE', 'FIXED'],
+            },
+            {
+              accessor: 'isActive',
+              title: 'Status',
+              options: ['Active', 'Inactive'],
+            },
+          ]}
           searchable
           highlightOnHover
+          loading={loading}
           page={page}
           limit={limit}
           total={total}
-          loading={loading}
-          searchValue={searchPlaces}
-          setSearchValue={setSearchPlaces}
+          searchValue={search}
+          setSearchValue={setSearch}
           rowKey={(row) => row.id}
-          onPageChange={(newPage) => fetchPlaces({ page: newPage })}
-          onSearch={(search) => fetchPlaces({ search, page: 1 })}
+          onPageChange={(newPage) => fetchVouchers({ page: newPage })}
+          onSearch={(search) => fetchVouchers({ search, page: 1 })}
+          // onSortChange={(sortBy, order) => fetchVouchers({ sortBy, order })}
+          onFilterChange={(key, value) => {
+            if (key === 'isActive') {
+              fetchVouchers({
+                page: 1,
+                isActive: value ? value === 'Active' : undefined,
+              });
+            } else if (key === 'discountType') {
+              fetchVouchers({
+                page: 1,
+                discountType: value ? (value as 'PERCENTAGE' | 'FIXED') : undefined,
+              });
+            }
+          }}
           handleAddButton={handleAdd}
         />
       </Card>
 
       {/* Form Modal */}
-      <PlaceFormModal
+      <VoucherFormModal
         opened={modalForm}
         mode={mode}
-        initialValues={selectedPlace}
+        initialValues={selectedVoucher}
         onClose={() => setModalForm(false)}
         onSubmit={(values) => {
           if (mode === 'add') {
             handleSubmit(values);
           } else {
-            handleUpdate(selectedPlace?.id || '', values);
+            handleUpdate(selectedVoucher?.id || '', values);
           }
         }}
       />
 
       {/* Delete Modal */}
       <DeleteFlowModal
-        title="Delete Place"
+        title="Delete Voucher"
         opened={modalDelete}
-        itemName={selectedPlace?.name || ''}
-        confirmText={selectedPlace?.name || ''}
+        itemName={selectedVoucher?.title || ''}
+        confirmText={selectedVoucher?.title || ''}
         onConfirm={() => {
           setModalDelete(false);
-          handleConfirmDelete([selectedPlace?.id || '']);
+          handleConfirmDelete([selectedVoucher?.id || '']);
         }}
         onClose={() => setModalDelete(false)}
       />

@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect } from 'react';
 import { Grid, SimpleGrid, Stack, useMantineColorScheme, useMantineTheme } from '@mantine/core';
-import { notifications } from '@mantine/notifications';
 import { getMe } from '@/services/userService';
 import { useAuthStore } from '@/store/authStore';
+import { notifyApiError } from '@/utils/handleApiError';
 import GrowthCard from './_components/GrowthCard';
 import OrderByDirectoryBar from './_components/OrderByDirectoryBar';
 import OrderByMonthBar from './_components/OrderByMonthBar';
@@ -74,13 +74,7 @@ export default function OverviewPage() {
       setLoading(false);
     } catch (err: any) {
       setLoading(false);
-      notifications.show({
-        title: 'Error',
-        message: err?.response?.data?.message || 'Something went wrong',
-        color: 'red',
-        autoClose: 3000, // auto dismiss dalam 3 detik
-        // classNames: classes,
-      });
+      notifyApiError(err);
     }
   }, []);
 

@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
   IconBuildings,
   IconChartPie,
+  IconDiscount2,
   IconFileText,
   IconFolder,
   IconInbox,
@@ -20,6 +21,7 @@ const navItems = [
   { label: 'Documents', href: '/documents', icon: IconFileText },
   { label: 'Places', href: '/places', icon: IconBuildings },
   { label: 'News & Articles', href: '/news', icon: IconNews },
+  { label: 'Vouchers', href: '/vouchers', icon: IconDiscount2 },
   { label: 'Accounts', href: '/accounts', icon: IconUsers },
 ];
 
