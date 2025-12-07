@@ -108,6 +108,7 @@ export function ArticleFormModal({
 
   // Reset form when modal changes
   useEffect(() => {
+    // Reset form values
     form.setValues({
       slug: initialValues?.slug || '',
       title: initialValues?.title || '',
@@ -121,8 +122,13 @@ export function ArticleFormModal({
       isActive: initialValues?.isActive ?? true,
     });
 
-    if (editor && initialValues?.content) {
-      editor.commands.setContent(initialValues.content);
+    // Reset TipTap content AFTER editor is ready
+    if (editor) {
+      if (mode === 'edit' && initialValues?.content) {
+        editor.commands.setContent(initialValues.content);
+      } else {
+        editor.commands.clearContent(); // 👈 always clear in "add" mode
+      }
     }
   }, [opened, mode, initialValues, editor]);
 

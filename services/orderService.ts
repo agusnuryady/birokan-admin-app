@@ -15,6 +15,7 @@ export interface OrderResponse {
   procedureId: string;
   voucherId?: string | null;
   xenditId?: string | null;
+  invoiceUrl?: string | null;
 
   totalAmount: number;
   amountBreakdown?: Record<string, any> | null;

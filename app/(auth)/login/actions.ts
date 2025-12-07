@@ -40,6 +40,7 @@ export async function loginAction(
 export async function logoutAction() {
   const cookieStore = await cookies(); // ✅ same here
   await cookieStore.delete('accessToken');
+  await cookieStore.delete('refreshToken');
   await cookieStore.delete('hasPin');
   await cookieStore.delete('isVerified');
   return { success: true };

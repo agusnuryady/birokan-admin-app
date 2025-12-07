@@ -64,7 +64,14 @@ export default function OrderDetailModal({ orderId, onClose }: Props) {
                 {order.status}
               </Badge>
             </div>
-
+          </Group>
+          <Group justify="space-between" mt={16}>
+            <div>
+              <Text size="sm" fw={600}>
+                Invoice URL
+              </Text>
+              <Text size="sm">{order.invoiceUrl ?? '-'}</Text>
+            </div>
             <div>
               <Text size="sm" fw={600}>
                 Total Amount

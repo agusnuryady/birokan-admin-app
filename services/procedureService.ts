@@ -480,7 +480,7 @@ export async function updateProcedure(id: string, values: ProcedureFormValues) {
 
 // ✅ GET procedures list (with pagination & filters)
 export async function getProcedures(query: ProcedureQuery) {
-  const { data } = await api.get<PaginatedResponse<ProcedureResponse>>('/v1/procedures', {
+  const { data } = await api.get<PaginatedResponse<ProcedureResponse>>('/v1/procedures/admin', {
     params: query,
   });
   return data;
@@ -498,12 +498,14 @@ export async function deleteProcedures(ids: string[], soft = false) {
 
 // ✅ GET procedure detail (by id or slug)
 export async function getProcedureDetail(query: ProcedureDetailQuery) {
-  const { data } = await api.get<ProcedureResponse>('/v1/procedures/detail', { params: query });
+  const { data } = await api.get<ProcedureResponse>('/v1/procedures/admin/detail', {
+    params: query,
+  });
   return data;
 }
 
 // ✅ GET procedure dropdown data
 export async function getProcedureDropdown() {
-  const { data } = await api.get<ProcedureDropdownResponse>('/v1/procedures/dropdown');
+  const { data } = await api.get<ProcedureDropdownResponse>('/v1/procedures/admin/dropdown');
   return data;
 }

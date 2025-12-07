@@ -111,7 +111,7 @@ export async function updateArticle(id: string, values: ArticleFormValues) {
 }
 
 export async function getArticle(query: ArticleQuery) {
-  const { data } = await api.get<PaginatedResponse<ArticleResponse>>('/v1/articles', {
+  const { data } = await api.get<PaginatedResponse<ArticleResponse>>('/v1/articles/admin', {
     params: query,
   });
   return data;
@@ -127,7 +127,7 @@ export async function deleteArticles(ids: string[], soft = false) {
 }
 
 export async function getArticleDetail(query: ArticleDetailQuery) {
-  const { data } = await api.get<ArticleResponse>('/v1/articles/detail', {
+  const { data } = await api.get<ArticleResponse>('/v1/articles/admin/detail', {
     params: query,
   });
   return data;
