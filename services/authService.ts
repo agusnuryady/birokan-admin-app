@@ -76,9 +76,10 @@ export async function requestOtp() {
   return data;
 }
 
-export async function verifyOtp(otp: string) {
+export async function verifyOtp(otp: string, type: string) {
   const { data } = await api.post('/v1/auth/otp/verify', {
     otp,
+    type,
   });
 
   // Set JWT globally for subsequent API requests

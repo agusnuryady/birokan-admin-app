@@ -174,7 +174,7 @@ export default function Header({ toggleLeft, toggleRight }: HeaderProps) {
             variant="light"
             onClick={() => {
               closeDrawer();
-              router.push('/reset-pin');
+              router.push('/otp-reset-pin');
             }}
           >
             Change PIN

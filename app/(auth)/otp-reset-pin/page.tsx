@@ -1,19 +1,20 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 // import { useRouter } from 'next/navigation';
 import { Anchor, Group, Paper, PinInput, Stack, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 // import { hashPin } from '@/lib/crypto';
-import { verifyOtp } from '@/services/authService';
+import { requestOtp, verifyOtp } from '@/services/authService';
 import { useAuthStore } from '@/store/authStore';
 import maskEmail from '@/utils/maskEmail';
 // import { loginAction } from '../login/actions';
 import classes from './notification.module.css';
 
 export default function OtpResetPinPage() {
-  // const router = useRouter();
-  const { user, setLoading } = useAuthStore();
+  const router = useRouter();
+  const { user, setLoading, setAccessToken, setRefreshToken } = useAuthStore();
   const [otp, setOtp] = useState('');
   const [timer, setTimer] = useState(60); // countdown in seconds
 
@@ -22,7 +23,7 @@ export default function OtpResetPinPage() {
     try {
       setLoading(true);
       // TODO: call your backend API here
-      // await requestOtp();
+      await requestOtp();
       await notifications.show({
         title: 'Success',
         message: 'Kode OTP berhasil terkirim 🎉',
@@ -41,10 +42,16 @@ export default function OtpResetPinPage() {
       setLoading(true);
       // TODO: call your backend API here
       // const res =
-      await verifyOtp(otp);
+      const res = await verifyOtp(otp, 'reset_pin');
       // console.log('res', res);
-      setLoading(false);
-      // router.navigate('/');
+      setAccessToken(res.accessToken);
+      setRefreshToken(res.refreshToken);
+      await notifications.show({
+        title: 'Success',
+        message: 'Verifikasi kode OTP sukses 🎉',
+        color: 'green',
+      });
+      router.push('/reset-pin?type=forgot');
     } catch (err: any) {
       // console.error('Failed to send OTP:', err);
       setLoading(false);
@@ -57,12 +64,15 @@ export default function OtpResetPinPage() {
           classNames: classes,
         });
       }
+    } finally {
+      setLoading(false);
     }
   };
 
   // Auto send OTP when first enter the screen
   useEffect(() => {
     handleRequestOtp();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Countdown effect

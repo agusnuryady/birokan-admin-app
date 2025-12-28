@@ -9,24 +9,20 @@ import {
   getProcedureDetail,
   ProcedureFormValues,
   ProcedureResponse,
-  updateProcedure,
 } from '@/services/procedureService';
 import { useProcedureStore } from '@/store/procedureStore';
 import { useGlobalLoading } from '@/store/useGlobalLoading';
 import { notifyApiError } from '@/utils/handleApiError';
-import ProcedureDetail from './_components/ProcedureDetail'; // adjust path if needed
-import ProcedureModal from './_components/ProcedureModal';
+import ProcedureDetail from './_components/ProcedureDetail';
 
 export default function ProcedureDetailPage() {
   const searchParams = useSearchParams();
   const procedureId = searchParams.get('id') || '';
   const router = useRouter();
-  const { dropdown, fetchDropdown } = useProcedureStore();
+  const { fetchDropdown } = useProcedureStore();
 
   const { showLoading, hideLoading } = useGlobalLoading();
 
-  const [modalProcedure, setModalProcedure] = useState(false);
-  const [modeModalProcedure, setModeModalProcedure] = useState<'add' | 'edit'>('edit');
   const [selectedProcedure, setSelectedProcedure] = useState<
     Partial<ProcedureFormValues> | undefined
   >();
@@ -34,11 +30,12 @@ export default function ProcedureDetailPage() {
   const [procedureDetail, setProcedureDetail] = useState<ProcedureResponse | undefined>();
 
   const handleEditProcedure = (procedure: ProcedureResponse) => {
-    setModeModalProcedure('edit');
-    setSelectedProcedure({
-      ...procedure,
-    });
-    setModalProcedure(true);
+    // setModeModalProcedure('edit');
+    // setSelectedProcedure({
+    //   ...procedure,
+    // });
+    // setModalProcedure(true);
+    router.push(`/procedure/${procedure.id}`);
   };
 
   const fetchProcedureDetail = async (id: string) => {
@@ -70,27 +67,10 @@ export default function ProcedureDetailPage() {
     }
   };
 
-  const handleUpdateProcedure = async (procedureId: string, values: ProcedureFormValues) => {
-    try {
-      showLoading();
-      const { id, ...rest } = values;
-      const response = await updateProcedure(procedureId, rest);
-      await fetchProcedureDetail(procedureId);
-      await notifications.show({
-        title: 'Success',
-        message: `You have updated ${response.name} procedure successfully 🎉`,
-        color: 'green',
-      });
-    } catch (error: any) {
-      notifyApiError(error);
-    } finally {
-      hideLoading();
-    }
-  };
-
   useEffect(() => {
     fetchDropdown();
     fetchProcedureDetail(procedureId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -118,7 +98,7 @@ export default function ProcedureDetailPage() {
         }}
         onClose={() => setModalDeleteProcedure(false)}
       />
-      <ProcedureModal
+      {/* <ProcedureModal
         opened={modalProcedure}
         onClose={() => setModalProcedure(false)}
         mode={modeModalProcedure}
@@ -127,7 +107,7 @@ export default function ProcedureDetailPage() {
         onSubmit={(values) => {
           handleUpdateProcedure(selectedProcedure?.id || '', values);
         }}
-      />
+      /> */}
     </div>
   );
 }

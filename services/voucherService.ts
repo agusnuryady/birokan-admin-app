@@ -67,12 +67,12 @@ export const deleteVouchers = async (ids: string[], soft = false): Promise<void>
 export const getVouchers = async (
   params: GetVouchersQueryParams
 ): Promise<PaginatedResponse<VoucherResponse>> => {
-  const { data } = await api.get('/v1/vouchers', { params });
+  const { data } = await api.get('/v1/vouchers/admin', { params });
   return data;
 };
 
 export async function getVouchersDetail(query: VoucherDetailQuery) {
-  const { data } = await api.get<VoucherResponse>('/v1/vouchers/detail', {
+  const { data } = await api.get<VoucherResponse>('/v1/vouchers/admin/detail', {
     params: query,
   });
   return data;

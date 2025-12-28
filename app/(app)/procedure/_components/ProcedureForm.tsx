@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { IconTrash } from '@tabler/icons-react';
 import {
   ActionIcon,
@@ -10,7 +11,6 @@ import {
   FileButton,
   Group,
   Image,
-  Modal,
   NumberInput,
   Paper,
   Select,
@@ -37,28 +37,33 @@ import { CustomCostBuilder } from './custom-cost/CustomCostBuilder';
 import { DeclarationEditor } from './DeclarationEditor';
 import StepList from './StepList';
 
-type ProcedureModalProps = {
-  opened: boolean;
-  onClose: () => void;
+/* ================= PROPS ================= */
+
+type ProcedureFormPageProps = {
   mode: 'add' | 'edit';
   initialValues?: Partial<ProcedureFormValues>;
   dropdownData: ProcedureDropdownResponse;
-  onSubmit: (values: ProcedureFormValues) => void | Promise<void>;
+  onSubmit: (values: ProcedureFormValues) => Promise<void>;
 };
 
-export default function ProcedureModal({
-  opened,
-  onClose,
+/* ================= PAGE ================= */
+
+export default function ProcedureFormPage({
   mode,
   initialValues,
   dropdownData,
   onSubmit,
-}: ProcedureModalProps) {
+}: ProcedureFormPageProps) {
+  const router = useRouter();
+
+  /* ================= FORM ================= */
+
   const form = useForm<ProcedureFormValues>({
     initialValues: {
       directoryId: '',
       name: '',
       slug: '',
+      description: '',
       isActive: true,
       isAssistant: false,
       costOptions: [],
@@ -69,110 +74,36 @@ export default function ProcedureModal({
       questions: [],
       declarations: [],
       completeForms: [],
-      costFormula: {
-        tokens: [],
-      },
+      costFormula: { tokens: [] },
       ...initialValues,
-      description: initialValues?.description || '',
     },
   });
 
-  // Options state (includes programmatically created options)
   const [options, setOptions] = useState<string[]>([]);
 
-  // When modal opens for edit, set values from initialValues.
-  // When closed, reset to initial initialValues (the one passed to useForm).
-  useEffect(() => {
-    if (opened) {
-      if (initialValues) {
-        // merge carefully to avoid undefined
-        form.setValues({
-          ...form.values,
-          ...initialValues,
-          description: initialValues?.description || '',
-          costOptions:
-            initialValues.costOptions?.map((item) => ({
-              cost: item.cost,
-              title: item.title,
-              desc: item.desc,
-              minTime: item.minTime,
-              maxTime: item.maxTime,
-            })) ?? form.values.costOptions,
-          requirements:
-            initialValues.requirements?.map((item) => ({
-              ...(item.id && { id: item.id }),
-              description: item.description,
-            })) ?? form.values.requirements,
-          documents:
-            initialValues.documents?.map((item) => ({
-              ...(item.id && { id: item.id }),
-              documentId: item.documentId,
-              amount: item.amount,
-              required: item.required,
-              directoryId: item.directoryId,
-            })) ?? form.values.documents,
-          places:
-            initialValues.places?.map((item) => ({
-              ...(item.id && { id: item.id }),
-              placeId: item.placeId,
-            })) ?? form.values.places,
-          steps: initialValues.steps
-            ? initialValues.steps.map((item, i) => ({
-                id:
-                  item.id ||
-                  (globalThis.crypto && (crypto as any).randomUUID
-                    ? (crypto as any).randomUUID()
-                    : `step-${i}-${Date.now()}`),
-                order: item.order ?? i + 1,
-                description: item.description ?? '',
-                group: item.group ?? '',
-                linkURL: item.linkURL ?? '',
-                imageUrl: item.imageUrl ?? '',
-                image: item.image ?? null,
-              }))
-            : form.values.steps,
-          questions:
-            initialValues.questions?.map((item) => ({
-              ...(item.id && { id: item.id }),
-              label: item.label,
-              description: item.description,
-              questionText: item.questionText,
-              type: item.type,
-              required: item.required,
-              options: item.options,
-              linkURL: item.linkURL ?? '',
-              imageUrl: item.imageUrl ?? '',
-            })) ?? form.values.questions,
-          declarations:
-            initialValues.declarations?.map((item) => ({
-              ...(item.id && { id: item.id }),
-              title: item.title,
-              boldText: item.boldText,
-              content: item.content,
-            })) ?? form.values.declarations,
-          completeForms:
-            initialValues.completeForms?.map((item) => ({
-              ...(item.id && { id: item.id }),
-              title: item.title,
-              boldText: item.boldText,
-              content: item.content,
-            })) ?? form.values.completeForms,
-          costFormula: initialValues.costFormula ?? {
-            tokens: [],
-          },
-        } as ProcedureFormValues);
-        const defaultOptions = initialValues.steps?.map((item) => item.group) || [];
-        const dropdowDefault = dropdownData.stepGroup?.map((item) => item.group) || [];
-        setOptions(Array.from(new Set([...defaultOptions, ...dropdowDefault])));
-      }
-    } else {
-      // reset when closed so next open is fresh
-      form.reset();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opened, initialValues]);
+  /* ================= INIT (SAME AS MODAL) ================= */
 
-  // helpers to manipulate lists (documents / places / steps)
+  useEffect(() => {
+    if (!initialValues) {
+      return;
+    }
+
+    form.setValues({
+      ...form.values,
+      ...initialValues,
+      description: initialValues.description || '',
+      costFormula: initialValues.costFormula ?? { tokens: [] },
+    } as ProcedureFormValues);
+
+    const defaultOptions = initialValues.steps?.map((s) => s.group) || [];
+    const dropdownDefaults = dropdownData.stepGroup?.map((s) => s.group) || [];
+
+    setOptions(Array.from(new Set([...defaultOptions, ...dropdownDefaults])));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* ================= HELPERS ================= */
+
   const addCostOption = () =>
     form.setValues({
       ...form.values,
@@ -229,7 +160,17 @@ export default function ProcedureModal({
       ...form.values,
       questions: [
         ...form.values.questions,
-        { questionText: '', type: QuestionType.TEXT, required: true, description: '', options: [] },
+        {
+          id: crypto.randomUUID(),
+          questionText: '',
+          type: QuestionType.TEXT,
+          required: true,
+          description: '',
+          options: [],
+          linkURL: '',
+          image: null,
+          imageUrl: '',
+        },
       ],
     });
 
@@ -269,11 +210,7 @@ export default function ProcedureModal({
     form.setValues({ ...form.values, completeForms });
   };
 
-  const handleSubmit = async (values: ProcedureFormValues) => {
-    await onSubmit(values);
-    // optionally close modal after successful submit
-    onClose(); // caller may choose to close in their onSubmit handler
-  };
+  /* ================= FORMULA ENGINE (UNCHANGED) ================= */
 
   const costBreakdown = useMemo(() => {
     return calculateCostBreakdown(form.values.costFormula?.tokens ?? []);
@@ -283,15 +220,18 @@ export default function ProcedureModal({
     return costBreakdown.reduce((sum, item) => sum + item.value, 0);
   }, [costBreakdown]);
 
+  /* ================= RENDER ================= */
+
   return (
-    <Modal
-      opened={opened}
-      onClose={onClose}
-      title={mode === 'add' ? 'Add New Procedure' : 'Edit Procedure'}
-      size="lg"
-      withCloseButton
-    >
-      <form onSubmit={form.onSubmit(handleSubmit)}>
+    <Box px="lg" pb={80}>
+      {/* ================= HEADER ================= */}
+      <Group justify="space-between" mb="md">
+        <Text fw={700} size="xl">
+          {mode === 'add' ? 'Add Procedure' : 'Edit Procedure'}
+        </Text>
+      </Group>
+
+      <form onSubmit={form.onSubmit(onSubmit)}>
         <Stack gap="md">
           {/* Directory */}
           <Select
@@ -513,6 +453,11 @@ export default function ProcedureModal({
                             value: item.id,
                           }))}
                           {...form.getInputProps(`documents.${idx}.directoryId` as any)}
+                          onChange={(v) => {
+                            const slug = dropdownData.directory.find((item) => item.id === v)?.slug;
+                            form.setFieldValue(`documents.${idx}.directoryId`, v as string);
+                            form.setFieldValue(`documents.${idx}.directorySlug`, slug);
+                          }}
                         />
                       </Box>
                     </Group>
@@ -692,7 +637,7 @@ export default function ProcedureModal({
                           <TextInput
                             label="Link URL"
                             placeholder="Enter link URL"
-                            {...(form.getInputProps(`questions.${idx}.linkURL` as any) as any)}
+                            {...form.getInputProps(`questions.${idx}.linkURL`)}
                             style={{ flex: 1 }}
                           />
                         </Group>
@@ -844,14 +789,25 @@ export default function ProcedureModal({
           )}
         </Stack>
 
-        {/* Footer */}
-        <Group justify="right" mt="lg">
-          <Button variant="default" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit">{mode === 'add' ? 'Submit' : 'Save'}</Button>
-        </Group>
+        {/* ================= STICKY FOOTER ================= */}
+        <Box
+          pos="fixed"
+          bottom={0}
+          left={0}
+          right={0}
+          bg="white"
+          py="sm"
+          px="lg"
+          style={{ borderTop: '1px solid #eee', zIndex: 20 }}
+        >
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => router.back()}>
+              Cancel
+            </Button>
+            <Button type="submit">{mode === 'add' ? 'Create Procedure' : 'Save Changes'}</Button>
+          </Group>
+        </Box>
       </form>
-    </Modal>
+    </Box>
   );
 }

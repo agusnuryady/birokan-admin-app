@@ -1,3 +1,4 @@
+import { CostFormulaToken } from '@/app/(app)/procedure/_components/custom-cost/types';
 import api from '@/lib/axios';
 import { DirectoryResponse } from './directoryService';
 
@@ -22,6 +23,7 @@ export interface ProcedureDocumentInput {
   amount?: number;
   required?: boolean;
   directoryId?: string;
+  directorySlug?: string;
   document?: DocumentItem;
 }
 
@@ -73,6 +75,9 @@ export interface ProcedureQuestionInput {
   type: QuestionType;
   required: boolean;
   options: string[];
+  image?: File | null;
+  imageUrl?: string;
+  linkURL?: string;
 }
 
 export interface ProcedureDeclarationInput {
@@ -88,6 +93,39 @@ export interface CompleteOrderDeclarationInput {
   boldText?: string;
   content?: string;
 }
+
+// type CostFormulaToken =
+//   | {
+//       id: string;
+//       type: 'VARIABLE';
+//       source: 'QUESTION' | 'FIXED';
+//       questionId?: string;
+//       title?: string;
+//       fixedValue?: number;
+//       fixedString?: string;
+//       sampleValue?: number | string;
+//       role?: 'MONEY' | 'LOGIC';
+//     }
+//   | {
+//       id: string;
+//       type: 'SYMBOL';
+//       symbol:
+//         | '+'
+//         | '-'
+//         | '*'
+//         | '/'
+//         | '('
+//         | ')'
+//         | '>'
+//         | '<'
+//         | '>='
+//         | '<='
+//         | '=='
+//         | 'IF'
+//         | ','
+//         | 'TODAY'
+//         | 'DATEDIFF_MONTHS';
+//     };
 
 /* ----------------------- Form Values for Frontend ------------------------ */
 export interface ProcedureFormValues {
@@ -106,6 +144,9 @@ export interface ProcedureFormValues {
   questions: ProcedureQuestionInput[];
   declarations: ProcedureDeclarationInput[];
   completeForms: CompleteOrderDeclarationInput[];
+  costFormula?: {
+    tokens: CostFormulaToken[];
+  };
 }
 
 /* ----------------------- Response Models ----------------------- */
@@ -128,6 +169,9 @@ export interface ProcedureResponse {
   questions: ProcedureQuestionInput[];
   declarations: ProcedureDeclarationInput[];
   completeForms: CompleteOrderDeclarationInput[];
+  costFormula?: {
+    tokens: CostFormulaToken[];
+  };
 }
 
 /* ----------------------- Query & Pagination ----------------------- */
@@ -161,6 +205,7 @@ export interface ProcedureDropdownResponse {
   directory: {
     id: string;
     name: string;
+    slug: string;
   }[];
   documents: {
     id: string;
@@ -182,127 +227,116 @@ export interface ProcedureDropdownResponse {
 export async function createProcedure(values: ProcedureFormValues) {
   const formData = new FormData();
 
-  // ✅ Append all text fields
+  /* ================= BASIC FIELDS ================= */
   formData.append('directoryId', values.directoryId);
   formData.append('name', values.name);
   formData.append('slug', values.slug);
+
   if (values.description) {
     formData.append('description', values.description);
   }
-  if (values.isActive !== undefined) {
-    formData.append('isActive', String(values.isActive));
+
+  formData.append('isActive', String(values.isActive));
+  formData.append('isAssistant', String(values.isAssistant));
+
+  /* ================= COST OPTIONS ================= */
+  (values.costOptions ?? []).forEach((op, i) => {
+    formData.append(`costOptions[${i}][cost]`, String(op.cost));
+    formData.append(`costOptions[${i}][title]`, op.title);
+    formData.append(`costOptions[${i}][desc]`, op.desc);
+    formData.append(`costOptions[${i}][minTime]`, String(op.minTime));
+    formData.append(`costOptions[${i}][maxTime]`, String(op.maxTime));
+  });
+
+  /* ================= COST FORMULA ================= */
+  if (values.costFormula && values.costFormula.tokens.length > 0) {
+    formData.append('costFormula', JSON.stringify(values.costFormula));
   }
-  if (values.isAssistant !== undefined) {
-    formData.append('isAssistant', String(values.isAssistant));
-  }
-  (values.costOptions ?? []).forEach((op, idx) => {
-    formData.append(`costOptions[${idx}][cost]`, String(op.cost));
-    formData.append(`costOptions[${idx}][title]`, String(op.title));
-    formData.append(`costOptions[${idx}][desc]`, String(op.desc));
-    formData.append(`costOptions[${idx}][minTime]`, String(op.minTime));
-    formData.append(`costOptions[${idx}][maxTime]`, String(op.maxTime));
-  });
 
-  // --- Array fields ---
-  (values.requirements ?? []).forEach((requirement, i) => {
-    if (requirement.description) {
-      formData.append(`requirements[${i}][description]`, requirement.description);
+  /* ================= REQUIREMENTS ================= */
+  (values.requirements ?? []).forEach((r, i) => {
+    if (r.description) {
+      formData.append(`requirements[${i}][description]`, r.description);
     }
   });
 
-  (values.documents ?? []).forEach((doc, i) => {
-    if (doc.documentId) {
-      formData.append(`documents[${i}][documentId]`, doc.documentId);
+  /* ================= DOCUMENTS ================= */
+  (values.documents ?? []).forEach((d, i) => {
+    if (d.documentId) {
+      formData.append(`documents[${i}][documentId]`, d.documentId);
     }
-    if (doc.amount !== undefined) {
-      formData.append(`documents[${i}][amount]`, String(doc.amount));
+    formData.append(`documents[${i}][amount]`, String(d.amount));
+    formData.append(`documents[${i}][required]`, String(d.required));
+    if (d.directoryId) {
+      formData.append(`documents[${i}][directoryId]`, d.directoryId);
     }
-    if (doc.required !== undefined) {
-      formData.append(`documents[${i}][required]`, String(doc.required));
-    }
-    if (doc.directoryId !== undefined && doc.directoryId !== null) {
-      formData.append(`documents[${i}][directoryId]`, String(doc.directoryId));
-    }
-  });
-
-  (values.places ?? []).forEach((place, i) => {
-    if (place.placeId) {
-      formData.append(`places[${i}][placeId]`, place.placeId);
+    if (d.directorySlug) {
+      formData.append(`documents[${i}][directorySlug]`, d.directorySlug);
     }
   });
 
-  (values.steps ?? []).forEach((step, i) => {
-    if (step.id) {
-      formData.append(`steps[${i}][id]`, step.id);
-    }
-    if (step.description) {
-      formData.append(`steps[${i}][description]`, step.description);
-    }
-    if (step.order !== undefined) {
-      formData.append(`steps[${i}][order]`, String(step.order));
-    }
-    formData.append(`steps[${i}][group]`, step.group ?? '');
-    formData.append(`steps[${i}][linkURL]`, step.linkURL ?? '');
-
-    // image file (optional)
-    if (step.image instanceof File) {
-      formData.append(`images`, step.image); // backend can map this separately
+  /* ================= PLACES ================= */
+  (values.places ?? []).forEach((p, i) => {
+    if (p.placeId) {
+      formData.append(`places[${i}][placeId]`, p.placeId);
     }
   });
 
-  /** ---------------------- QUESTIONS ---------------------- **/
-  (values.questions ?? []).forEach((question, i) => {
-    if (question.label !== undefined) {
-      formData.append(`questions[${i}][label]`, String(question.label));
-    }
-    if (question.description !== undefined) {
-      formData.append(`questions[${i}][description]`, String(question.description));
-    }
-    if (question.questionText !== undefined) {
-      formData.append(`questions[${i}][questionText]`, String(question.questionText));
-    }
-    if (question.type !== undefined) {
-      formData.append(`questions[${i}][type]`, String(question.type));
-    }
-    if (question.required !== undefined) {
-      formData.append(`questions[${i}][required]`, String(question.required));
-    }
-    if (question.options !== undefined) {
-      formData.append(`questions[${i}][options]`, JSON.stringify(question.options));
+  /* ================= STEPS ================= */
+  (values.steps ?? []).forEach((s, i) => {
+    formData.append(`steps[${i}][id]`, s.id ?? '');
+    formData.append(`steps[${i}][description]`, s.description ?? '');
+    formData.append(`steps[${i}][order]`, String(s.order ?? i + 1));
+    formData.append(`steps[${i}][group]`, s.group ?? '');
+    formData.append(`steps[${i}][linkURL]`, s.linkURL ?? '');
+
+    if (s.image instanceof File) {
+      formData.append('stepImages', s.image);
     }
   });
 
-  /** ---------------------- DECLARATIONS ---------------------- **/
-  (values.declarations ?? []).forEach((declaration, i) => {
-    if (declaration.title !== undefined) {
-      formData.append(`declarations[${i}][title]`, String(declaration.title));
+  /* ================= QUESTIONS ================= */
+  (values.questions ?? []).forEach((q, i) => {
+    if (q.id) {
+      formData.append(`questions[${i}][id]`, q.id);
     }
-    if (declaration.boldText !== undefined) {
-      formData.append(`declarations[${i}][boldText]`, String(declaration.boldText));
-    }
-    if (declaration.content !== undefined) {
-      formData.append(`declarations[${i}][content]`, String(declaration.content));
+
+    formData.append(`questions[${i}][questionText]`, q.questionText);
+    formData.append(`questions[${i}][type]`, q.type);
+    formData.append(`questions[${i}][required]`, String(q.required));
+    formData.append(`questions[${i}][description]`, q.description ?? '');
+    formData.append(`questions[${i}][options]`, JSON.stringify(q.options ?? []));
+    formData.append(`questions[${i}][linkURL]`, q.linkURL ?? '');
+
+    if (q.image instanceof File) {
+      formData.append('questionImages', q.image);
     }
   });
 
-  /** ---------------------- COMPLETE ORDER DECLARATIONS ---------------------- **/
-  (values.completeForms ?? []).forEach((completeForm, i) => {
-    if (completeForm.title !== undefined) {
-      formData.append(`completeForms[${i}][title]`, String(completeForm.title));
+  /* ================= DECLARATIONS ================= */
+  (values.declarations ?? []).forEach((d, i) => {
+    formData.append(`declarations[${i}][title]`, d.title);
+    if (d.boldText !== undefined) {
+      formData.append(`declarations[${i}][boldText]`, d.boldText);
     }
-    if (completeForm.boldText !== undefined) {
-      formData.append(`completeForms[${i}][boldText]`, String(completeForm.boldText));
-    }
-    if (completeForm.content !== undefined) {
-      formData.append(`completeForms[${i}][content]`, String(completeForm.content));
+    if (d.content !== undefined) {
+      formData.append(`declarations[${i}][content]`, d.content);
     }
   });
 
-  // ✅ Send multipart/form-data
+  /* ================= COMPLETE FORMS ================= */
+  (values.completeForms ?? []).forEach((c, i) => {
+    formData.append(`completeForms[${i}][title]`, c.title);
+    if (c.boldText !== undefined) {
+      formData.append(`completeForms[${i}][boldText]`, c.boldText);
+    }
+    if (c.content !== undefined) {
+      formData.append(`completeForms[${i}][content]`, c.content);
+    }
+  });
+
   const { data } = await api.post<ProcedureResponse>('/v1/procedures/admin/create', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
+    headers: { 'Content-Type': 'multipart/form-data' },
   });
 
   return data;
@@ -324,13 +358,19 @@ export async function updateProcedure(id: string, values: ProcedureFormValues) {
   if (values.isAssistant !== undefined) {
     formData.append('isAssistant', String(values.isAssistant));
   }
-  (values.costOptions ?? []).forEach((op, idx) => {
-    formData.append(`costOptions[${idx}][cost]`, String(op.cost));
-    formData.append(`costOptions[${idx}][title]`, String(op.title));
-    formData.append(`costOptions[${idx}][desc]`, String(op.desc));
-    formData.append(`costOptions[${idx}][minTime]`, String(op.minTime));
-    formData.append(`costOptions[${idx}][maxTime]`, String(op.maxTime));
+  /* ================= COST OPTIONS ================= */
+  (values.costOptions ?? []).forEach((op, i) => {
+    formData.append(`costOptions[${i}][cost]`, String(op.cost));
+    formData.append(`costOptions[${i}][title]`, op.title);
+    formData.append(`costOptions[${i}][desc]`, op.desc);
+    formData.append(`costOptions[${i}][minTime]`, String(op.minTime));
+    formData.append(`costOptions[${i}][maxTime]`, String(op.maxTime));
   });
+
+  /* ================= COST FORMULA ================= */
+  if (values.costFormula && values.costFormula.tokens.length > 0) {
+    formData.append('costFormula', JSON.stringify(values.costFormula));
+  }
 
   /** ---------------------- REQUIREMENTS ---------------------- **/
   (values.requirements ?? []).forEach((requirement, i) => {
@@ -357,6 +397,7 @@ export async function updateProcedure(id: string, values: ProcedureFormValues) {
       formData.append(`documents[${i}][required]`, String(doc.required));
     }
     formData.append(`documents[${i}][directoryId]`, String(doc.directoryId ?? ''));
+    formData.append(`documents[${i}][directorySlug]`, String(doc.directorySlug ?? ''));
   });
 
   /** ---------------------- PLACES ---------------------- **/
@@ -388,7 +429,7 @@ export async function updateProcedure(id: string, values: ProcedureFormValues) {
     // ✅ Handle image properly
     if (step.image instanceof File) {
       // Append file to FormData
-      formData.append('images', step.image);
+      formData.append('stepImages', step.image);
 
       // ✅ Mark which file index belongs to this step
       formData.append(`steps[${i}][fileIndex]`, String(imageFileIndex));
@@ -422,25 +463,51 @@ export async function updateProcedure(id: string, values: ProcedureFormValues) {
   });
 
   /** ---------------------- QUESTIONS ---------------------- **/
-  (values.questions ?? []).forEach((question, i) => {
-    if (question.id) {
-      formData.append(`questions[${i}][id]`, question.id);
+  let questionImageFileIndex = 0;
+
+  (values.questions ?? []).forEach((q, i) => {
+    if (q.id) {
+      formData.append(`questions[${i}][id]`, q.id);
     }
-    if (question.label !== undefined) {
-      formData.append(`questions[${i}][label]`, String(question.label));
-    }
-    formData.append(`questions[${i}][description]`, String(question.description ?? ''));
-    if (question.questionText !== undefined) {
-      formData.append(`questions[${i}][questionText]`, String(question.questionText));
-    }
-    if (question.type !== undefined) {
-      formData.append(`questions[${i}][type]`, String(question.type));
-    }
-    if (question.required !== undefined) {
-      formData.append(`questions[${i}][required]`, String(question.required));
-    }
-    if (question.options !== undefined) {
-      formData.append(`questions[${i}][options]`, JSON.stringify(question.options));
+
+    formData.append(`questions[${i}][questionText]`, q.questionText);
+    formData.append(`questions[${i}][type]`, q.type);
+    formData.append(`questions[${i}][required]`, String(q.required));
+    formData.append(`questions[${i}][description]`, q.description ?? '');
+    formData.append(`questions[${i}][options]`, JSON.stringify(q.options ?? []));
+    formData.append(`questions[${i}][linkURL]`, q.linkURL ?? '');
+
+    if (q.image instanceof File) {
+      formData.append('questionImages', q.image);
+
+      // ✅ Mark which file index belongs to this step
+      formData.append(`questions[${i}][fileIndex]`, String(questionImageFileIndex));
+
+      // increment counter for next image
+      questionImageFileIndex++;
+    } else if (typeof q.imageUrl === 'string' && q.imageUrl.length > 0) {
+      // Preserve existing Supabase image URL, stripping token and /object/... prefix
+      try {
+        const url = new URL(q.imageUrl);
+        const pathname = url.pathname;
+
+        // Match after '/object/sign/question/' or '/object/public/question/'
+        const match = pathname.match(/\/object\/(?:sign|public)\/questions\/(.+)$/);
+        const filename = match ? decodeURIComponent(match[1]) : q.imageUrl;
+
+        // ✅ Strip out the "question/" folder prefix if accidentally included
+        const cleanFilename = filename.replace(/^questions\//, '');
+
+        // ✅ Append only the filename (e.g. '1760631676772-xxxx.png')
+        formData.append(`questions[${i}][imageUrl]`, cleanFilename);
+      } catch {
+        // Fallback if it's not a valid URL
+        const cleanFilename = q.imageUrl.replace(/^questions\//, '');
+        formData.append(`questions[${i}][imageUrl]`, cleanFilename);
+      }
+    } else {
+      // No image at all
+      formData.append(`questions[${i}][imageUrl]`, '');
     }
   });
 

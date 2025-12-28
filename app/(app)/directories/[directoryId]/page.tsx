@@ -14,19 +14,15 @@ import {
   updateDirectory,
 } from '@/services/directoryService';
 import {
-  createProcedure,
   deleteProcedures,
-  getProcedureDetail,
   ProcedureFormValues,
   ProcedureResponse,
-  updateProcedure,
 } from '@/services/procedureService';
 import { useProcedureStore } from '@/store/procedureStore';
 import { useGlobalLoading } from '@/store/useGlobalLoading';
 import { notifyApiError } from '@/utils/handleApiError';
 // your reusable table
 import { DirectoryFormValues } from '../_components/DirectoryFormModal';
-import ProcedureModal from '../../procedure/_components/ProcedureModal';
 import { DetailCard } from './_components/DetailCard';
 
 export default function DirectoryDetailPage() {
@@ -37,7 +33,6 @@ export default function DirectoryDetailPage() {
   const { showLoading, hideLoading } = useGlobalLoading();
   const {
     procedures,
-    dropdown,
     total,
     page,
     limit,
@@ -49,24 +44,24 @@ export default function DirectoryDetailPage() {
   } = useProcedureStore();
 
   const [directoryDetail, setDirectoryDetail] = useState<DirectoryResponse | undefined>();
-  const [modalProcedure, setModalProcedure] = useState(false);
-  const [modeModalProcedure, setModeModalProcedure] = useState<'add' | 'edit'>('add');
   const [selectedProcedure, setSelectedProcedure] = useState<
     Partial<ProcedureFormValues> | undefined
   >();
   const [modalDeleteProcedure, setModalDeleteProcedure] = useState(false);
 
   const handleAddProcedure = () => {
-    setModeModalProcedure('add');
-    setSelectedProcedure({
-      directoryId,
-    });
-    setModalProcedure(true);
+    // setModeModalProcedure('add');
+    // setSelectedProcedure({
+    //   directoryId,
+    // });
+    // setModalProcedure(true);
+    router.push(`/procedure/new?directoryId=${directoryId}`);
   };
 
   const handleEditProcedure = (procedure: ProcedureResponse) => {
-    setModeModalProcedure('edit');
-    fetchProcedureDetail(procedure.id);
+    // setModeModalProcedure('edit');
+    // fetchProcedureDetail(procedure.id);
+    router.push(`/procedure/${procedure.id}`);
   };
 
   const handleDeleteProcedure = (procedure: ProcedureResponse) => {
@@ -120,55 +115,6 @@ export default function DirectoryDetailPage() {
     }
   };
 
-  const fetchProcedureDetail = async (id: string) => {
-    try {
-      showLoading();
-      const response = await getProcedureDetail({ id });
-      const { createdAt, updatedAt, directory, ...rest } = response;
-      setSelectedProcedure(rest);
-      setModalProcedure(true);
-    } catch (error: any) {
-      notifyApiError(error);
-    } finally {
-      hideLoading();
-    }
-  };
-
-  const handleSubmitProcedure = async (values: ProcedureFormValues) => {
-    try {
-      showLoading();
-      const response = await createProcedure(values);
-      await fetchProcedures({ directoryId, page: 1 });
-      await notifications.show({
-        title: 'Success',
-        message: `You have created ${response.name} procedure successfully 🎉`,
-        color: 'green',
-      });
-    } catch (error: any) {
-      notifyApiError(error);
-    } finally {
-      hideLoading();
-    }
-  };
-
-  const handleUpdateProcedure = async (procedureId: string, values: ProcedureFormValues) => {
-    try {
-      showLoading();
-      const { id, ...rest } = values;
-      const response = await updateProcedure(procedureId, rest);
-      await fetchProcedures({ directoryId, page: 1 });
-      await notifications.show({
-        title: 'Success',
-        message: `You have updated ${response.name} procedure successfully 🎉`,
-        color: 'green',
-      });
-    } catch (error: any) {
-      notifyApiError(error);
-    } finally {
-      hideLoading();
-    }
-  };
-
   const handleConfirmDeleteProcedure = async (ids: string[]) => {
     try {
       showLoading();
@@ -189,6 +135,7 @@ export default function DirectoryDetailPage() {
   useEffect(() => {
     fetchDirectoryDetail(directoryId);
     fetchDropdown();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -320,21 +267,6 @@ export default function DirectoryDetailPage() {
         }}
         onClose={() => setModalDeleteProcedure(false)}
       />
-      <ProcedureModal
-        opened={modalProcedure}
-        onClose={() => setModalProcedure(false)}
-        mode={modeModalProcedure}
-        initialValues={selectedProcedure} // pass data for editing
-        dropdownData={dropdown}
-        onSubmit={(values) => {
-          if (modeModalProcedure === 'add') {
-            handleSubmitProcedure(values);
-          } else {
-            handleUpdateProcedure(selectedProcedure?.id || '', values);
-          }
-        }}
-      />
-      ;
     </Stack>
   );
 }

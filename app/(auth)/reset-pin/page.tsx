@@ -15,7 +15,7 @@ import classes from './notification.module.css';
 export default function ResetPinPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const resetPinType = searchParams.get('type');
+  const resetPinType = searchParams.get('type') || 'new'; // new | forgot
 
   const { showLoading, hideLoading } = useGlobalLoading();
   const { user, setAccessToken, setRefreshToken, setHasPin, setIsVerified, setUser } =

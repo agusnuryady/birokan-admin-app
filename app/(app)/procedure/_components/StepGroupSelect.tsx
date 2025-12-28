@@ -6,12 +6,21 @@ import { ActionIcon, Combobox, Group, InputBase, useCombobox } from '@mantine/co
 
 type Props = {
   value?: string;
+  label?: string;
+  placeholder?: string;
   onChange: (value: string) => void;
   options: string[];
   setOptions: (opts: string[]) => void;
 };
 
-export default function StepGroupSelect({ value = '', onChange, options, setOptions }: Props) {
+export default function StepGroupSelect({
+  value = '',
+  label = 'Group',
+  placeholder = 'Select or add group',
+  onChange,
+  options,
+  setOptions,
+}: Props) {
   const combobox = useCombobox({
     onDropdownClose: () => combobox.resetSelectedOption(),
   });
@@ -59,8 +68,8 @@ export default function StepGroupSelect({ value = '', onChange, options, setOpti
     <Combobox store={combobox} onOptionSubmit={handleSelect}>
       <Combobox.Target>
         <InputBase
-          label="Group"
-          placeholder="Select or add group"
+          label={label}
+          placeholder={placeholder}
           value={search || selectedValue}
           onChange={(e) => {
             const val = e.currentTarget.value;

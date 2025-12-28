@@ -40,6 +40,57 @@ type ProcedureDetailProps = {
   onDelete: () => void;
 };
 
+const SYMBOL_LABELS: Record<string, string> = {
+  '+': '+',
+  '-': '-',
+  '*': '×',
+  '/': '÷',
+  '>': '>',
+  '<': '<',
+  '>=': '≥',
+  '<=': '≤',
+  '==': '=',
+  IF: 'IF',
+  TODAY: 'TODAY',
+  DATEDIFF_MONTHS: 'DATEDIFF_MONTHS',
+  ',': ',',
+  '(': '(',
+  ')': ')',
+};
+
+function buildFormulaExpression(tokens: any[], questions: any[]) {
+  return tokens
+    .map((t) => {
+      if (t.type === 'SYMBOL') {
+        return SYMBOL_LABELS[t.symbol] ?? t.symbol;
+      }
+
+      if (t.type === 'VARIABLE') {
+        // FIXED
+        if (t.source === 'FIXED') {
+          return t.title ? `${t.title} (${t.fixedValue ?? 0})` : String(t.fixedValue ?? 0);
+        }
+
+        // QUESTION
+        const q = questions.find((q) => q.id === t.questionId);
+
+        if (!q) {
+          return '❓QUESTION';
+        }
+
+        // DATE hint
+        if (q.type === 'DATE') {
+          return `${q.questionText} (DATE)`;
+        }
+
+        return q.questionText;
+      }
+
+      return '';
+    })
+    .join(' ');
+}
+
 function DeclarationItem({ declaration }: { declaration: ProcedureDeclarationInput }) {
   const [opened, setOpened] = useState(false);
 
@@ -198,10 +249,10 @@ export default function ProcedureDetail({ data, onEdit, onDelete }: ProcedureDet
         <Divider my="md" />
         <Stack gap="xs">
           <Text size="xs" c="dimmed">
-            Created at: {data?.createdAt}
+            Created at: {new Date(data?.createdAt ?? '').toLocaleString('id-ID')}
           </Text>
           <Text size="xs" c="dimmed">
-            Last modified: {data?.updatedAt}
+            Last modified: {new Date(data?.updatedAt ?? '').toLocaleString('id-ID')}
           </Text>
         </Stack>
       </Paper>
@@ -210,7 +261,7 @@ export default function ProcedureDetail({ data, onEdit, onDelete }: ProcedureDet
         variant="separated"
         radius="md"
         multiple
-        defaultValue={['requirements', 'documents', 'places', 'cost_options']}
+        defaultValue={['requirements', 'documents', 'places', 'cost_options', 'cost_formula']}
       >
         {/* COST OPTIONS */}
         {data?.isAssistant && (
@@ -245,6 +296,45 @@ export default function ProcedureDetail({ data, onEdit, onDelete }: ProcedureDet
                   </Paper>
                 ))}
               </SimpleGrid>
+            </Accordion.Panel>
+          </Accordion.Item>
+        )}
+        {/* COST FORMULA */}
+        {data?.isAssistant && (data?.costFormula?.tokens?.length ?? 0) > 0 && (
+          <Accordion.Item value="cost_formula">
+            <Accordion.Control icon={<IconCurrencyDollar size={16} />}>
+              Cost Formula
+            </Accordion.Control>
+            <Accordion.Panel>
+              <Stack gap="sm">
+                <Text size="sm" c="dimmed">
+                  Dynamic cost calculation rule
+                </Text>
+
+                <Paper withBorder p="md" radius="md">
+                  <Stack gap="xs">
+                    <Text size="xs" c="dimmed">
+                      Formula Expression
+                    </Text>
+
+                    <Text ff="monospace" fw={600}>
+                      {buildFormulaExpression(data.costFormula?.tokens ?? [], data.questions ?? [])}
+                    </Text>
+
+                    <Divider />
+
+                    <Text size="xs" c="dimmed">
+                      Notes
+                    </Text>
+                    <Text size="sm">
+                      • <b>IF</b> supports date comparison using <b>TODAY</b>
+                      <br />
+                      • Question values are resolved during order submission
+                      <br />• Fixed values are constants defined by admin
+                    </Text>
+                  </Stack>
+                </Paper>
+              </Stack>
             </Accordion.Panel>
           </Accordion.Item>
         )}
@@ -407,12 +497,32 @@ export default function ProcedureDetail({ data, onEdit, onDelete }: ProcedureDet
                       <Stack gap={2}>
                         <Text fw={500}>{q.questionText}</Text>
                         {q.description && <Text size="sm">{q.description}</Text>}
-                        <Badge color={q.required ? 'teal' : 'gray'}>
-                          {q.required ? 'Required' : 'Optional'}
-                        </Badge>
-                        <Text size="xs" c="dimmed">
-                          Type: {q.type}
-                        </Text>
+                        <Group gap="xs">
+                          <Badge color={q.required ? 'teal' : 'gray'}>
+                            {q.required ? 'Required' : 'Optional'}
+                          </Badge>
+                          <Badge variant="outline">{q.type}</Badge>
+                        </Group>
+
+                        {q.linkURL && (
+                          <Anchor
+                            href={q.linkURL.startsWith('http') ? q.linkURL : `https://${q.linkURL}`}
+                            target="_blank"
+                            size="sm"
+                          >
+                            Reference Link
+                          </Anchor>
+                        )}
+
+                        {q.imageUrl && (
+                          <Image
+                            src={q.imageUrl}
+                            alt={q.questionText}
+                            radius="md"
+                            w={240}
+                            fit="contain"
+                          />
+                        )}
                       </Stack>
                     </Group>
                   </Paper>
