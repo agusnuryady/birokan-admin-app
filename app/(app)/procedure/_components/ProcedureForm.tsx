@@ -26,16 +26,80 @@ import {
   ProcedureDropdownResponse,
   ProcedureFormValues,
   QuestionType,
+  ValidationConditionOperator,
+  ValidationOperator,
 } from '@/services/procedureService';
 import {
   buildFormulaExpression,
   calculateCostBreakdown,
   evaluateFormula,
+  roundUpToNearest,
 } from '@/utils/procedure/helper';
+import { AgentDeclarationEditor } from './AgentDeclarationEditor';
 import { CompleteOrderDeclarationEditor } from './CompleteOrderDeclarationEditor';
 import { CustomCostBuilder } from './custom-cost/CustomCostBuilder';
 import { DeclarationEditor } from './DeclarationEditor';
 import StepList from './StepList';
+
+/* ================= VALIDATION CONSTANTS ================= */
+
+const OPERATOR_LABELS: Record<ValidationOperator, string> = {
+  REQUIRED: 'Required',
+  MIN_LENGTH: 'Minimum Length',
+  MAX_LENGTH: 'Maximum Length',
+  REGEX: 'Regex Match',
+  MIN: 'Minimum Value',
+  MAX: 'Maximum Value',
+  IN: 'Allowed Values',
+
+  DATE_NOT_OLDER_THAN_YEARS: 'Date not older than (years)',
+  DATE_NOT_BEFORE: 'Date not before',
+  DATE_NOT_AFTER: 'Date not after',
+};
+
+function getOperatorsByQuestionType(type?: QuestionType): ValidationOperator[] {
+  if (!type) {
+    return Object.values(ValidationOperator);
+  }
+
+  switch (type) {
+    case QuestionType.DATE:
+      return [
+        ValidationOperator.REQUIRED,
+        ValidationOperator.DATE_NOT_OLDER_THAN_YEARS,
+        ValidationOperator.DATE_NOT_BEFORE,
+        ValidationOperator.DATE_NOT_AFTER,
+      ];
+
+    case QuestionType.NUMBER:
+      return [ValidationOperator.REQUIRED, ValidationOperator.MIN, ValidationOperator.MAX];
+
+    case QuestionType.TEXT:
+      return [
+        ValidationOperator.REQUIRED,
+        ValidationOperator.MIN_LENGTH,
+        ValidationOperator.MAX_LENGTH,
+        ValidationOperator.REGEX,
+      ];
+
+    case QuestionType.SELECT:
+    case QuestionType.MULTISELECT:
+      return [ValidationOperator.REQUIRED, ValidationOperator.IN];
+
+    default:
+      return [ValidationOperator.REQUIRED];
+  }
+}
+
+/* ================= CONDITION CONSTANTS ================= */
+
+const CONDITION_OPERATOR_LABELS: Record<ValidationConditionOperator, string> = {
+  EQUALS: 'Equals',
+  NOT_EQUALS: 'Not Equals',
+  IN: 'In List',
+  NOT_IN: 'Not In List',
+  EXISTS: 'Has Value',
+};
 
 /* ================= PROPS ================= */
 
@@ -66,16 +130,20 @@ export default function ProcedureFormPage({
       description: '',
       isActive: true,
       isAssistant: false,
+      isReminder: false,
       costOptions: [],
       requirements: [],
       documents: [],
       places: [],
       steps: [],
       questions: [],
+      questionsValidation: [],
       declarations: [],
+      agentDeclarations: [],
       completeForms: [],
       costFormula: { tokens: [] },
-      ...initialValues,
+      reminderTemplate: null,
+      // ...initialValues,
     },
   });
 
@@ -92,7 +160,8 @@ export default function ProcedureFormPage({
       ...form.values,
       ...initialValues,
       description: initialValues.description || '',
-      costFormula: initialValues.costFormula ?? { tokens: [] },
+      costFormula: initialValues.costFormula?.tokens ? initialValues.costFormula : { tokens: [] },
+      reminderTemplate: initialValues.reminderTemplate ?? null,
     } as ProcedureFormValues);
 
     const defaultOptions = initialValues.steps?.map((s) => s.group) || [];
@@ -180,6 +249,24 @@ export default function ProcedureFormPage({
     form.setValues({ ...form.values, questions });
   };
 
+  const addValidationRule = () =>
+    form.setFieldValue('questionsValidation', [
+      ...form.values.questionsValidation,
+      {
+        targetField: '',
+        operator: ValidationOperator.REQUIRED,
+        message: '',
+        isActive: true,
+        condition: undefined,
+      },
+    ]);
+
+  const removeValidationRule = (index: number) => {
+    const rules = [...form.values.questionsValidation];
+    rules.splice(index, 1);
+    form.setFieldValue('questionsValidation', rules);
+  };
+
   const addDeclaration = () =>
     form.setValues({
       ...form.values,
@@ -193,6 +280,21 @@ export default function ProcedureFormPage({
     const declarations = [...form.values.declarations];
     declarations.splice(index, 1);
     form.setValues({ ...form.values, declarations });
+  };
+
+  const addAgentDeclaration = () =>
+    form.setValues({
+      ...form.values,
+      agentDeclarations: [
+        ...form.values.agentDeclarations,
+        { id: crypto.randomUUID(), title: '', boldText: '', content: '' },
+      ],
+    });
+
+  const removeAgentDeclaration = (index: number) => {
+    const agentDeclarations = [...form.values.agentDeclarations];
+    agentDeclarations.splice(index, 1);
+    form.setValues({ ...form.values, agentDeclarations });
   };
 
   const addCompleteForm = () =>
@@ -219,6 +321,26 @@ export default function ProcedureFormPage({
   const breakdownSubtotal = useMemo(() => {
     return costBreakdown.reduce((sum, item) => sum + item.value, 0);
   }, [costBreakdown]);
+
+  /* ================= QUESTION OPTIONS FOR VALIDATION ================= */
+
+  const questionSelectOptions = useMemo(
+    () =>
+      form.values.questions.map((q) => ({
+        value: q.id!,
+        label: `${q.questionText} (${q.type})`,
+      })),
+    [form.values.questions]
+  );
+
+  const conditionQuestionOptions = useMemo(
+    () =>
+      form.values.questions.map((q) => ({
+        value: q.id!,
+        label: `${q.questionText} (${q.type})`,
+      })),
+    [form.values.questions]
+  );
 
   /* ================= RENDER ================= */
 
@@ -283,6 +405,13 @@ export default function ProcedureFormPage({
               <Switch {...form.getInputProps('isAssistant', { type: 'checkbox' })} />
               <Text size="sm">Is Assistant</Text>
             </Group>
+
+            {form.values.isAssistant && (
+              <Group gap="xs" align="center">
+                <Switch {...form.getInputProps('isReminder', { type: 'checkbox' })} />
+                <Text size="sm">Is Reminder</Text>
+              </Group>
+            )}
           </Group>
 
           {form.values.isAssistant && (
@@ -366,6 +495,135 @@ export default function ProcedureFormPage({
                   + Add New Cost Option
                 </Button>
               </Stack>
+            </>
+          )}
+
+          {form.values.isAssistant && form.values.isReminder && (
+            <>
+              <Divider label="Reminder Configuration" />
+
+              <Paper withBorder p="md" radius="md">
+                <Stack gap="sm">
+                  <Group align="center" justify="space-between">
+                    <Text fw={500}>Enable Reminder</Text>
+                    <Switch
+                      checked={!!form.values.reminderTemplate}
+                      onChange={(e) => {
+                        if (e.currentTarget.checked) {
+                          form.setFieldValue('reminderTemplate', {
+                            frequency: 'YEARLY',
+                            offsetType: 'ONE_MONTH',
+                            dateSource: 'ORDER_DATE',
+                            titleTemplate: '',
+                            descTemplate: '',
+                          });
+                        } else {
+                          form.setFieldValue('reminderTemplate', null);
+                        }
+                      }}
+                    />
+                  </Group>
+
+                  {form.values.reminderTemplate && (
+                    <>
+                      {/* Frequency */}
+                      <Group grow>
+                        <Select
+                          label="Reminder Frequency"
+                          data={[
+                            { label: 'Monthly', value: 'MONTHLY' },
+                            { label: 'Yearly', value: 'YEARLY' },
+                            { label: 'Every 5 Years', value: 'FIVE_YEARS' },
+                            { label: 'Custom', value: 'CUSTOM' },
+                          ]}
+                          {...form.getInputProps('reminderTemplate.frequency')}
+                          required
+                        />
+
+                        {form.values.reminderTemplate.frequency === 'CUSTOM' && (
+                          <NumberInput
+                            label="Custom Interval (months)"
+                            min={1}
+                            {...form.getInputProps('reminderTemplate.intervalValue')}
+                            required
+                          />
+                        )}
+                      </Group>
+
+                      {/* Offset */}
+                      <Group grow>
+                        <Select
+                          label="Reminder Time"
+                          data={[
+                            { label: '1 Week Before', value: 'ONE_WEEK' },
+                            { label: '1 Month Before', value: 'ONE_MONTH' },
+                            { label: 'Custom', value: 'CUSTOM' },
+                          ]}
+                          {...form.getInputProps('reminderTemplate.offsetType')}
+                          required
+                        />
+
+                        {form.values.reminderTemplate.offsetType === 'CUSTOM' && (
+                          <NumberInput
+                            label="Custom Offset (days before)"
+                            min={1}
+                            {...form.getInputProps('reminderTemplate.offsetValue')}
+                            required
+                          />
+                        )}
+                      </Group>
+
+                      {/* Date Source */}
+                      <Select
+                        label="Reminder Date Source"
+                        data={[
+                          { label: 'Order Created Date', value: 'ORDER_CREATED_AT' },
+                          { label: 'Order Selected Date', value: 'ORDER_DATE' },
+                          { label: 'From Order Form Answer', value: 'ORDER_FORM_ANSWER' },
+                        ]}
+                        {...form.getInputProps('reminderTemplate.dateSource')}
+                        required
+                      />
+
+                      {form.values.reminderTemplate.dateSource === 'ORDER_FORM_ANSWER' && (
+                        <Select
+                          label="Order Form Question (Date)"
+                          placeholder="Select date question"
+                          data={form.values.questions
+                            .filter((q) => q.type === 'DATE')
+                            .map((q) => ({
+                              label: q.questionText,
+                              value: q.id!,
+                            }))}
+                          {...form.getInputProps('reminderTemplate.dateKey')}
+                          required
+                        />
+                      )}
+
+                      {/* Content */}
+                      <TextInput
+                        label="Reminder Title"
+                        placeholder="e.g. Perpanjangan STNK"
+                        {...form.getInputProps('reminderTemplate.titleTemplate')}
+                        required
+                      />
+
+                      <Textarea
+                        label="Reminder Description"
+                        placeholder="Optional reminder message"
+                        {...form.getInputProps('reminderTemplate.descTemplate')}
+                      />
+
+                      <Text size="xs" c="dimmed">
+                        Available variables:
+                        <br />
+                        <code>{'{{user_name}}'}</code>, <code>{'{{procedure_name}}'}</code>,{' '}
+                        <code>{'{{event_date}}'}</code>
+                      </Text>
+                    </>
+                  )}
+                </Stack>
+              </Paper>
             </>
           )}
 
@@ -659,6 +917,185 @@ export default function ProcedureFormPage({
                 </Button>
               </Stack>
 
+              <Divider label="Form Question Validation Rules" />
+              <Stack gap="sm">
+                {form.values.questionsValidation.length === 0 && (
+                  <Text size="sm" c="dimmed">
+                    No validation rules yet. These rules validate user input when ordering.
+                  </Text>
+                )}
+
+                {form.values.questionsValidation.map((rule, idx) => {
+                  const targetQuestion = form.values.questions.find(
+                    (q) => q.id === rule.targetField
+                  );
+
+                  const conditionQuestion = form.values.questions.find(
+                    (q) => q.id === rule.condition?.questionId
+                  );
+
+                  return (
+                    <Paper key={idx} p="sm" radius="md" withBorder>
+                      <Group align="flex-start" wrap="nowrap">
+                        <Stack style={{ flex: 1 }} gap="xs">
+                          {/* ================= TARGET ================= */}
+                          <Select
+                            label="Target Question"
+                            data={questionSelectOptions}
+                            searchable
+                            clearable
+                            {...form.getInputProps(`questionsValidation.${idx}.targetField`)}
+                            required
+                          />
+
+                          {targetQuestion && (
+                            <Text size="xs" c="dimmed">
+                              Target type: <b>{targetQuestion.type}</b>
+                            </Text>
+                          )}
+
+                          {/* ================= OPERATOR ================= */}
+                          <Select
+                            label="Validation Operator"
+                            data={getOperatorsByQuestionType(targetQuestion?.type).map((op) => ({
+                              value: op,
+                              label: OPERATOR_LABELS[op],
+                            }))}
+                            {...form.getInputProps(`questionsValidation.${idx}.operator`)}
+                            required
+                          />
+
+                          {/* ================= VALUE ================= */}
+                          <Textarea
+                            label="Comparison Value"
+                            placeholder='Examples: 2, "^[A-Z0-9]{8}$", ["A","B"]'
+                            {...form.getInputProps(`questionsValidation.${idx}.value`)}
+                          />
+
+                          {/* ================= CONDITION ================= */}
+                          <Divider label="Condition (optional)" />
+
+                          <Switch
+                            label="Enable Condition"
+                            checked={!!rule.condition}
+                            onChange={(e) => {
+                              if (e.currentTarget.checked) {
+                                form.setFieldValue(`questionsValidation.${idx}.condition`, {
+                                  questionId: '',
+                                  operator: ValidationConditionOperator.EQUALS,
+                                  value: undefined,
+                                });
+                              } else {
+                                form.setFieldValue(
+                                  `questionsValidation.${idx}.condition`,
+                                  undefined
+                                );
+                              }
+                            }}
+                          />
+
+                          {rule.condition && (
+                            <>
+                              <Select
+                                label="Condition Question"
+                                data={conditionQuestionOptions}
+                                searchable
+                                clearable
+                                {...form.getInputProps(
+                                  `questionsValidation.${idx}.condition.questionId`
+                                )}
+                                required
+                              />
+
+                              <Select
+                                label="Condition Operator"
+                                data={(
+                                  Object.keys(
+                                    CONDITION_OPERATOR_LABELS
+                                  ) as ValidationConditionOperator[]
+                                ).map((op) => ({
+                                  value: op,
+                                  label: CONDITION_OPERATOR_LABELS[op],
+                                }))}
+                                {...form.getInputProps(
+                                  `questionsValidation.${idx}.condition.operator`
+                                )}
+                                required
+                              />
+
+                              {rule.condition.operator !== 'EXISTS' && (
+                                <Textarea
+                                  label="Condition Value"
+                                  placeholder='Examples: "YES", ["A","B"]'
+                                  value={
+                                    rule.condition.value !== undefined
+                                      ? JSON.stringify(rule.condition.value)
+                                      : ''
+                                  }
+                                  onChange={(e) => {
+                                    try {
+                                      form.setFieldValue(
+                                        `questionsValidation.${idx}.condition.value`,
+                                        JSON.parse(e.currentTarget.value)
+                                      );
+                                    } catch {
+                                      form.setFieldValue(
+                                        `questionsValidation.${idx}.condition.value`,
+                                        e.currentTarget.value
+                                      );
+                                    }
+                                  }}
+                                />
+                              )}
+
+                              {conditionQuestion && (
+                                <Text size="xs" c="dimmed">
+                                  Condition type: <b>{conditionQuestion.type}</b>
+                                </Text>
+                              )}
+                            </>
+                          )}
+
+                          {/* ================= ERROR ================= */}
+                          <TextInput
+                            label="Error Message"
+                            {...form.getInputProps(`questionsValidation.${idx}.message`)}
+                            required
+                          />
+
+                          {/* ================= ACTIVE ================= */}
+                          <Group gap="xs">
+                            <Switch
+                              checked={rule.isActive ?? true}
+                              onChange={(e) =>
+                                form.setFieldValue(
+                                  `questionsValidation.${idx}.isActive`,
+                                  e.currentTarget.checked
+                                )
+                              }
+                            />
+                            <Text size="sm">{rule.isActive ? 'Active' : 'Inactive'}</Text>
+                          </Group>
+                        </Stack>
+
+                        <ActionIcon
+                          color="red"
+                          variant="light"
+                          mt={28}
+                          onClick={() => removeValidationRule(idx)}
+                        >
+                          <IconTrash size={16} />
+                        </ActionIcon>
+                      </Group>
+                    </Paper>
+                  );
+                })}
+
+                <Button variant="light" onClick={addValidationRule}>
+                  + Add Question Validation Rule
+                </Button>
+              </Stack>
+
               {/* Declarations */}
               <Divider label="Declarations" />
               <Stack gap="sm">
@@ -680,6 +1117,30 @@ export default function ProcedureFormPage({
 
                 <Button variant="light" onClick={addDeclaration}>
                   + Add New Declaration
+                </Button>
+              </Stack>
+
+              {/* Declarations */}
+              <Divider label="Agent Declarations" />
+              <Stack gap="sm">
+                {form.values.agentDeclarations.length === 0 && (
+                  <Text size="sm" c="dimmed">
+                    No agent declarations yet. Add one below.
+                  </Text>
+                )}
+
+                {form.values.agentDeclarations.map((ad, idx) => (
+                  <AgentDeclarationEditor
+                    key={ad.id}
+                    idx={idx}
+                    agentDeclarations={ad}
+                    form={form}
+                    removeDeclaration={removeAgentDeclaration}
+                  />
+                ))}
+
+                <Button variant="light" onClick={addAgentDeclaration}>
+                  + Add New Agent Declaration
                 </Button>
               </Stack>
 
@@ -721,7 +1182,7 @@ export default function ProcedureFormPage({
               />
 
               {/* ===================== FORMULA PREVIEW ===================== */}
-              {(form.values.costFormula?.tokens.length as number) > 0 ? (
+              {(form.values.costFormula?.tokens?.length as number) > 0 ? (
                 <>
                   <Divider label="Formula Preview" />
                   <Paper withBorder p="md" radius="md">
@@ -745,9 +1206,10 @@ export default function ProcedureFormPage({
 
                       <Text size="lg" fw={700}>
                         Rp{' '}
-                        {evaluateFormula(form.values.costFormula?.tokens ?? [])?.toLocaleString(
-                          'id-ID'
-                        ) ?? '—'}
+                        {roundUpToNearest(
+                          evaluateFormula(form.values.costFormula?.tokens ?? []) ?? 0,
+                          1000
+                        )?.toLocaleString('id-ID') ?? '—'}
                       </Text>
 
                       <Text size="xs" c="dimmed">

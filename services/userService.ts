@@ -19,10 +19,11 @@ export interface AgentData {
 
 export interface UserFormValues {
   id?: string;
-  profilePicId?: string;
+  profilePicUrl?: string;
   fullName?: string;
   birthDate?: string;
   gender?: string;
+  phoneCode?: string;
   phoneNumber?: string;
   email?: string;
   address?: string;
@@ -37,10 +38,11 @@ export interface UserFormValues {
 
 export interface UserResponse {
   id: string;
-  profilePicId?: string;
+  profilePicUrl?: string;
   fullName?: string;
   birthDate?: string;
   gender?: string;
+  phoneCode?: string;
   phoneNumber?: string;
   email: string;
   address?: string;

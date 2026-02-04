@@ -1,10 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Box, Center, Loader, Text } from '@mantine/core';
-import { createProcedure, getProcedureDetail, updateProcedure } from '@/services/procedureService';
+import { notifications } from '@mantine/notifications';
+import {
+  createProcedure,
+  getProcedureDetail,
+  ProcedureFormValues,
+  updateProcedure,
+} from '@/services/procedureService';
 import { useProcedureStore } from '@/store/procedureStore';
+import { useGlobalLoading } from '@/store/useGlobalLoading';
 import { notifyApiError } from '@/utils/handleApiError';
 import ProcedureForm from '../_components/ProcedureForm';
 
@@ -14,6 +21,7 @@ export default function ProcedurePage() {
   const searchParams = useSearchParams();
 
   const { dropdown, fetchDropdown } = useProcedureStore();
+  const { showLoading, hideLoading } = useGlobalLoading();
 
   const procedureId = params.procedureId;
   const isEdit = procedureId !== 'new';
@@ -22,6 +30,31 @@ export default function ProcedurePage() {
 
   const [loading, setLoading] = useState(true);
   const [initialValues, setInitialValues] = useState<any>(null);
+
+  const handleConfirm = useCallback(
+    async (values: ProcedureFormValues) => {
+      try {
+        showLoading();
+        if (isEdit) {
+          await updateProcedure(procedureId, values);
+        } else {
+          await createProcedure(values);
+        }
+
+        await notifications.show({
+          title: 'Success',
+          message: `Procedure has been ${isEdit ? 'updated' : 'created'} 🎉`,
+          color: 'green',
+        });
+        router.back();
+      } catch (error: any) {
+        notifyApiError(error);
+      } finally {
+        hideLoading();
+      }
+    },
+    [hideLoading, isEdit, procedureId, router, showLoading]
+  );
 
   useEffect(() => {
     const load = async () => {
@@ -89,15 +122,7 @@ export default function ProcedurePage() {
         mode={isEdit ? 'edit' : 'add'}
         initialValues={initialValues}
         dropdownData={dropdown}
-        onSubmit={async (values) => {
-          if (isEdit) {
-            await updateProcedure(procedureId, values);
-          } else {
-            await createProcedure(values);
-          }
-
-          router.back();
-        }}
+        onSubmit={handleConfirm}
         // onCancel={() => router.back()}
       />
     </Box>

@@ -1,66 +1,12 @@
-/* eslint-disable no-console */
-// helper.ts
 /* ================= TYPES ================= */
 
 import {
   CostFormulaToken,
-  StringToken,
   SymbolToken,
   SymbolValue,
   VariableToken,
 } from '@/app/(app)/procedure/_components/custom-cost/types';
 import { ProcedureQuestionInput } from '@/services/procedureService';
-
-// export type SymbolValue =
-//   | '+'
-//   | '-'
-//   | '*'
-//   | '/'
-//   | '('
-//   | ')'
-//   | '>'
-//   | '<'
-//   | '>='
-//   | '<='
-//   | '=='
-//   | 'IF'
-//   | ','
-//   | 'TODAY'
-//   | 'DATEDIFF_MONTHS';
-
-// export interface BaseToken {
-//   id: string;
-//   costGroup?: string;
-// }
-
-// export interface SymbolToken extends BaseToken {
-//   type: 'SYMBOL';
-//   symbol: SymbolValue;
-// }
-
-// export interface VariableToken extends BaseToken {
-//   type: 'VARIABLE';
-//   source: 'QUESTION' | 'FIXED';
-//   role: 'MONEY' | 'LOGIC';
-//   valueType: 'NUMBER' | 'STRING' | 'DATE';
-//   questionId?: string;
-//   sampleValue?: number | string;
-//   fixedValue?: number | string;
-//   title?: string;
-// }
-
-// export interface StringToken extends BaseToken {
-//   type: 'STRING';
-//   value: string;
-// }
-
-// export type CostFormulaToken = SymbolToken | VariableToken | StringToken;
-
-// export type Question = {
-//   id: string;
-//   questionText: string;
-//   type?: string; // we only check for 'DATE' in buildFormulaExpression
-// };
 
 /* ================ LABELS & EXPORTS ================= */
 
@@ -76,13 +22,27 @@ export const SYMBOL_LABELS: Record<SymbolValue, string> = {
   '>=': '≥',
   '<=': '≤',
   '==': '=',
-  IF: 'IF',
   ',': ',',
+  IF: 'IF',
   TODAY: 'TODAY',
+  DATEDIFF_DAYS: 'DATEDIFF_DAYS',
   DATEDIFF_MONTHS: 'DATEDIFF_MONTHS',
+  ROUND_UP: 'ROUND_UP',
+  ROUND_DOWN: 'ROUND_DOWN',
+  YEAR: 'YEAR',
 };
 
 /* ================== UTIL ================== */
+
+export function diffDays(from: number, to: number): number {
+  const start = new Date(from);
+  const end = new Date(to);
+
+  const msPerDay = 1000 * 60 * 60 * 24;
+  const diff = Math.floor((end.getTime() - start.getTime()) / msPerDay);
+
+  return Math.max(0, diff);
+}
 
 export function diffMonths(from: number, to: number): number {
   const start = new Date(from);
@@ -97,6 +57,20 @@ export function diffMonths(from: number, to: number): number {
   return Math.max(0, months);
 }
 
+function roundUp(value: number, unit = 1): number {
+  if (!unit || unit <= 0) {
+    return value;
+  }
+  return Math.ceil(value / unit) * unit;
+}
+
+function roundDown(value: number, unit = 1): number {
+  if (!unit || unit <= 0) {
+    return value;
+  }
+  return Math.floor(value / unit) * unit;
+}
+
 /* ================== TYPE GUARDS ================== */
 
 function isSymbolToken(t: CostFormulaToken | undefined): t is SymbolToken {
@@ -105,411 +79,303 @@ function isSymbolToken(t: CostFormulaToken | undefined): t is SymbolToken {
 function isVariableToken(t: CostFormulaToken | undefined): t is VariableToken {
   return !!t && (t as any).type === 'VARIABLE';
 }
-function isStringToken(t: CostFormulaToken | undefined): t is StringToken {
-  return !!t && (t as any).type === 'STRING';
-}
 
 /* ================== EVALUATOR ================== */
 
 export const evaluateFormula = (tokens: CostFormulaToken[]): number | null => {
   try {
-    const stack: (number | string)[] = [];
+    let idx = 0;
 
-    /* -------------------------------- helpers -------------------------------- */
+    const peek = (offset = 0) => tokens[idx + offset];
+    const consume = () => tokens[idx++];
+    const eof = () => idx >= tokens.length;
 
-    const findClosingParen = (startIdx: number): number => {
-      let depth = 0;
-      for (let j = startIdx; j < tokens.length; j++) {
-        const tk = tokens[j];
-        if (isSymbolToken(tk) && tk.symbol === '(') {
-          depth++;
-        }
-        if (isSymbolToken(tk) && tk.symbol === ')') {
-          depth--;
-          if (depth === 0) {
-            return j;
-          }
-        }
-      }
-      return -1;
-    };
-
-    const isMathOperator = (t: CostFormulaToken | undefined) =>
-      isSymbolToken(t) && ['+', '-', '*', '/'].includes(t.symbol);
-
-    const comparisonOperators: SymbolValue[] = ['==', '>', '<', '>=', '<='];
-
-    const shouldInsertImplicitPlus = (prev: unknown, next: CostFormulaToken | undefined) =>
-      typeof prev === 'number' && !isMathOperator(next);
-
-    /* ---------------------------- slice evaluation ---------------------------- */
-
-    const evalSlice = (slice: CostFormulaToken[]): number => innerEval(slice);
-
-    const innerEval = (sliceTokens: CostFormulaToken[]): number => {
-      const parts: (number | string)[] = [];
-      let k = 0;
-
-      while (k < sliceTokens.length) {
-        const tk = sliceTokens[k];
-
-        // nested parentheses
-        if (isSymbolToken(tk) && tk.symbol === '(') {
-          let depth = 0;
-          let closeIdx = -1;
-          for (let j = k; j < sliceTokens.length; j++) {
-            const s = sliceTokens[j];
-            if (isSymbolToken(s) && s.symbol === '(') {
-              depth++;
-            }
-            if (isSymbolToken(s) && s.symbol === ')') {
-              depth--;
-              if (depth === 0) {
-                closeIdx = j;
-                break;
-              }
-            }
-          }
-          if (closeIdx === -1) {
-            k++;
-            continue;
-          }
-          const inner = sliceTokens.slice(k + 1, closeIdx);
-          parts.push(evalSlice(inner));
-          k = closeIdx + 1;
-          continue;
-        }
-
-        // DATEDIFF_MONTHS
-        if (isSymbolToken(tk) && tk.symbol === 'DATEDIFF_MONTHS') {
-          k++; // may point to '('
-          let nextToken = sliceTokens[k];
-          if (isSymbolToken(nextToken) && nextToken.symbol === '(') {
-            k++;
-          }
-          const A = sliceTokens[k++];
-          nextToken = sliceTokens[k];
-          if (isSymbolToken(nextToken) && nextToken.symbol === ',') {
-            k++;
-          }
-          const B = sliceTokens[k++];
-          nextToken = sliceTokens[k];
-          if (isSymbolToken(nextToken) && nextToken.symbol === ')') {
-            k++;
-          }
-
-          const aVal =
-            isSymbolToken(A) && A.symbol === 'TODAY'
-              ? Date.now()
-              : isVariableToken(A)
-                ? (A.sampleValue ?? 0)
-                : 0;
-          const bVal =
-            isSymbolToken(B) && B.symbol === 'TODAY'
-              ? Date.now()
-              : isVariableToken(B)
-                ? (B.sampleValue ?? 0)
-                : 0;
-
-          parts.push(diffMonths(bVal as number, aVal as number));
-          continue;
-        }
-
-        if (isVariableToken(tk)) {
-          const v = tk.source === 'FIXED' ? (tk.fixedValue ?? 0) : (tk.sampleValue ?? 0);
-          parts.push(tk.role === 'LOGIC' ? 0 : typeof v === 'string' ? Number(v) || 0 : v);
-          k++;
-          continue;
-        }
-
-        if (isSymbolToken(tk) && ['+', '-', '*', '/'].includes(tk.symbol)) {
-          parts.push(tk.symbol);
-          k++;
-          continue;
-        }
-
-        if (isStringToken(tk)) {
-          // strings only matter inside IF comparisons
-          k++;
-          continue;
-        }
-
-        k++;
-      }
-
-      return evalParts(sanitizeParts(parts));
-    };
-
-    /* ----------------- helper to evaluate a slice for comparisons ------------- */
-    // returns raw value (string|number) if the slice is a single variable or symbol TODAY,
-    // otherwise returns numeric value via evalSlice
-    const evalComparison = (slice: CostFormulaToken[]): number | string => {
-      if (!slice || slice.length === 0) {
+    const toNumberFromVariable = (v: VariableToken): number => {
+      const raw =
+        v.source === 'FIXED' ? (v.fixedValue ?? v.sampleValue) : (v.sampleValue ?? v.fixedValue);
+      if (raw === undefined || raw === null || raw === '') {
         return 0;
       }
+      return typeof raw === 'string' ? Number(raw) || 0 : Number(raw);
+    };
 
-      // single SYMBOL TODAY
+    const evalValueForCondition = (slice: CostFormulaToken[]): string | number => {
+      // Single VARIABLE → return raw value (string or number)
+      if (slice.length === 1 && isVariableToken(slice[0])) {
+        const v = slice[0];
+        const raw =
+          v.source === 'FIXED' ? (v.fixedValue ?? v.sampleValue) : (v.sampleValue ?? v.fixedValue);
+
+        return raw ?? '';
+      }
+
+      // Single TODAY
       if (slice.length === 1 && isSymbolToken(slice[0]) && slice[0].symbol === 'TODAY') {
         return Date.now();
       }
 
-      // single VARIABLE — return raw sampleValue / fixedValue (so string comparisons work)
-      if (slice.length === 1 && isVariableToken(slice[0])) {
-        const v = slice[0];
-        const raw =
-          v.source === 'FIXED'
-            ? (v.fixedValue ?? v.sampleValue ?? 0)
-            : (v.sampleValue ?? v.fixedValue ?? 0);
-        return raw as number | string;
-      }
-
-      // fallback to full numeric evaluation
-      return evalSlice(slice);
+      // Fallback: numeric evaluation
+      return evaluateFormula(slice) ?? 0;
     };
 
-    /* ------------------------ sanitize + math engine -------------------------- */
-
-    const sanitizeParts = (parts: (number | string)[]) => {
-      const out: (number | string)[] = [];
-      const isOp = (x: unknown) => typeof x === 'string' && ['+', '-', '*', '/'].includes(x);
-
-      for (const p of parts) {
-        if (typeof p === 'number') {
-          if (typeof out[out.length - 1] === 'number') {
-            out.push('+');
-          }
-          out.push(p);
-          continue;
-        }
-
-        if (isOp(p)) {
-          if (out.length === 0 || isOp(out[out.length - 1])) {
-            // replace previous operator or initialize
-            out[out.length - 1] = p as string;
-          } else {
-            out.push(p);
-          }
-        }
-      }
-
-      if (isOp(out[out.length - 1])) {
-        out.pop();
-      }
-      return out;
-    };
-
-    const evalParts = (parts: (number | string)[]) => {
-      if (!parts.length) {
+    // parseFactor -> numbers, variables, functions, grouped expressions
+    const parseFactor = (): number => {
+      const t = peek();
+      if (!t) {
         return 0;
       }
 
-      // * /
-      const pass1: (number | string)[] = [];
-      let i = 0;
-      while (i < parts.length) {
-        if (parts[i] === '*' || parts[i] === '/') {
-          const prev = Number(pass1.pop() ?? 0);
-          const next = Number(parts[i + 1] ?? 0);
-          pass1.push(parts[i] === '*' ? prev * next : next === 0 ? 0 : prev / next);
-          i += 2;
-        } else {
-          pass1.push(parts[i++]);
-        }
-      }
-
-      // + -
-      let total = Number(pass1[0] ?? 0);
-      for (let j = 1; j < pass1.length; j += 2) {
-        const op = pass1[j];
-        const num = Number(pass1[j + 1] ?? 0);
-        if (op === '+') {
-          total += num;
-        }
-        if (op === '-') {
-          total -= num;
-        }
-      }
-
-      return total;
-    };
-
-    /* ------------------------------- main loop -------------------------------- */
-
-    let i = 0;
-    while (i < tokens.length) {
-      const t = tokens[i];
-
-      // GROUP ()
+      // Parentheses (group)
       if (isSymbolToken(t) && t.symbol === '(') {
-        const closeIdx = findClosingParen(i);
-        if (closeIdx === -1) {
-          i++;
-          continue;
+        consume(); // '('
+        const val = parseExpression();
+        // consume ')'
+        if (isSymbolToken(peek()) && (peek() as SymbolToken).symbol === ')') {
+          consume();
         }
-        const val = evalSlice(tokens.slice(i + 1, closeIdx));
-        const prev = stack[stack.length - 1];
-        const next = tokens[closeIdx + 1];
-
-        if (shouldInsertImplicitPlus(prev, next)) {
-          stack.push('+');
-        }
-        stack.push(val);
-
-        i = closeIdx + 1;
-        continue;
+        return val;
       }
 
-      // IF(...)
-      if (isSymbolToken(t) && t.symbol === 'IF') {
-        // expect '(' immediately after IF
-        const openIdx = i + 1;
-        if (!isSymbolToken(tokens[openIdx]) || tokens[openIdx].symbol !== '(') {
-          console.warn('IF without opening "("', tokens[openIdx]);
-          i++;
-          continue;
+      // Function-like SYMBOL tokens: IF, ROUND_UP, ROUND_DOWN, DATEDIFF_DAYS, DATEDIFF_MONTHS, YEAR, TODAY
+      if (
+        isSymbolToken(t) &&
+        [
+          'IF',
+          'ROUND_UP',
+          'ROUND_DOWN',
+          'DATEDIFF_DAYS',
+          'DATEDIFF_MONTHS',
+          'YEAR',
+          'TODAY',
+        ].includes(t.symbol)
+      ) {
+        const fn = (consume() as SymbolToken).symbol;
+
+        // TODAY (no paren or with paren)
+        if (fn === 'TODAY') {
+          return Date.now();
         }
 
-        const closeIdx = findClosingParen(openIdx);
-        if (closeIdx === -1) {
-          console.warn('Unclosed IF parentheses', tokens.slice(openIdx));
-          i += 2;
-          continue;
+        // expect '('
+        if (!isSymbolToken(peek()) || (peek() as SymbolToken).symbol !== '(') {
+          return 0;
         }
+        consume(); // '('
 
-        // find operator index at depth 0 inside IF body
-        let depth = 0;
-        let operatorIdx = -1;
-        for (let j = openIdx + 1; j < closeIdx; j++) {
-          const tk = tokens[j];
-          if (isSymbolToken(tk) && tk.symbol === '(') {
-            depth++;
+        // helper to read comma-separated args until matching ')'
+        const readArgs = (): CostFormulaToken[][] => {
+          const args: CostFormulaToken[][] = [];
+          let start = idx;
+          let depth = 0;
+          while (!eof()) {
+            const cur = peek();
+            // adjust depth for nested parens encountered while scanning tokens (we track nestedness inside this arg scan)
+            if (isSymbolToken(cur)) {
+              if (cur.symbol === '(') {
+                depth++;
+              }
+              if (cur.symbol === ')') {
+                if (depth === 0) {
+                  // end of args region
+                  const slice = tokens.slice(start, idx);
+                  args.push(slice);
+                  break;
+                } else {
+                  depth--;
+                }
+              }
+              // comma at depth 0 separates args
+              if (cur.symbol === ',' && depth === 0) {
+                const slice = tokens.slice(start, idx);
+                args.push(slice);
+                // consume comma and move start
+                consume(); // comma
+                start = idx;
+                continue;
+              }
+            }
+            consume();
           }
-          if (isSymbolToken(tk) && tk.symbol === ')') {
-            depth--;
+          // consume the closing ')'
+          if (isSymbolToken(peek()) && (peek() as SymbolToken).symbol === ')') {
+            consume();
           }
-          if (depth === 0 && isSymbolToken(tk) && comparisonOperators.includes(tk.symbol)) {
-            operatorIdx = j;
-            break;
-          }
-        }
+          return args;
+        };
 
-        if (operatorIdx === -1) {
-          console.warn(
-            'No comparison operator found inside IF',
-            tokens.slice(openIdx, closeIdx + 1)
-          );
-          i = closeIdx + 1;
-          continue;
-        }
+        const rawArgs = readArgs();
 
-        // find the two commas (depth 0) separating true/false values
-        let comma1 = -1;
-        let comma2 = -1;
-        depth = 0;
-        for (let j = operatorIdx + 1; j < closeIdx; j++) {
-          const tk = tokens[j];
-          if (isSymbolToken(tk) && tk.symbol === '(') {
-            depth++;
+        if (fn === 'IF') {
+          // Expect exactly 3 arguments: condition (a comparison expression as tokens), trueExpr, falseExpr
+          if (rawArgs.length < 3) {
+            return 0;
           }
-          if (isSymbolToken(tk) && tk.symbol === ')') {
-            depth--;
-          }
-          if (depth === 0 && isSymbolToken(tk) && tk.symbol === ',') {
-            if (comma1 === -1) {
-              comma1 = j;
-            } else {
-              comma2 = j;
+          const condSlice = rawArgs[0];
+          // We'll evaluate condition: find comparison operator inside condSlice (==, >, <, >=, <=)
+          let opIdx = -1;
+          let opSym: SymbolValue | null = null;
+          let depth = 0;
+          for (let i = 0; i < condSlice.length; i++) {
+            const tk = condSlice[i];
+            if (isSymbolToken(tk) && tk.symbol === '(') {
+              depth++;
+            }
+            if (isSymbolToken(tk) && tk.symbol === ')') {
+              depth--;
+            }
+            if (
+              depth === 0 &&
+              isSymbolToken(tk) &&
+              ['==', '>', '<', '>=', '<='].includes(tk.symbol)
+            ) {
+              opIdx = i;
+              opSym = tk.symbol;
               break;
             }
           }
+          if (opIdx === -1 || !opSym) {
+            return 0;
+          }
+
+          const leftSlice = condSlice.slice(0, opIdx);
+          const rightSlice = condSlice.slice(opIdx + 1);
+
+          const left = evalValueForCondition(leftSlice);
+          const right = evalValueForCondition(rightSlice);
+
+          let cond = false;
+          if (opSym === '==') {
+            cond = String(left) === String(right);
+          } else if (opSym === '>') {
+            cond = Number(left) > Number(right);
+          } else if (opSym === '<') {
+            cond = Number(left) < Number(right);
+          } else if (opSym === '>=') {
+            cond = Number(left) >= Number(right);
+          } else if (opSym === '<=') {
+            cond = Number(left) <= Number(right);
+          }
+
+          const trueVal = evaluateFormula(rawArgs[1]) ?? 0;
+          const falseVal = evaluateFormula(rawArgs[2]) ?? 0;
+          return cond ? trueVal : falseVal;
         }
 
-        if (comma1 === -1 || comma2 === -1) {
-          console.warn(
-            'Malformed IF: missing commas for true/false values',
-            tokens.slice(openIdx, closeIdx + 1)
-          );
-          i = closeIdx + 1;
-          continue;
+        if (fn === 'ROUND_UP' || fn === 'ROUND_DOWN') {
+          const v = rawArgs[0] ?? [];
+          const u = rawArgs[1] ?? [];
+          const value = evaluateFormula(v) ?? 0;
+          const unit = u && u.length ? (evaluateFormula(u) ?? 1) : 1;
+          return fn === 'ROUND_UP'
+            ? roundUp(Number(value), Number(unit))
+            : roundDown(Number(value), Number(unit));
         }
 
-        const leftSlice = tokens.slice(openIdx + 1, operatorIdx);
-        const rightSlice = tokens.slice(operatorIdx + 1, comma1);
-        const trueSlice = tokens.slice(comma1 + 1, comma2);
-        const falseSlice = tokens.slice(comma2 + 1, closeIdx);
-
-        const leftVal = evalComparison(leftSlice);
-        const rightVal = evalComparison(rightSlice);
-        const trueVal = evalSlice(trueSlice);
-        const falseVal = evalSlice(falseSlice);
-
-        const operator = (tokens[operatorIdx] as SymbolToken).symbol;
-        let cond = false;
-        if (operator === '==') {
-          cond = String(leftVal) === String(rightVal);
-        } else if (operator === '>') {
-          cond = Number(leftVal) > Number(rightVal);
-        } else if (operator === '<') {
-          cond = Number(leftVal) < Number(rightVal);
-        } else if (operator === '>=') {
-          cond = Number(leftVal) >= Number(rightVal);
-        } else if (operator === '<=') {
-          cond = Number(leftVal) <= Number(rightVal);
-        } else {
-          console.warn('Unknown IF operator', operator);
+        if (fn === 'DATEDIFF_DAYS' || fn === 'DATEDIFF_MONTHS') {
+          const aSlice = rawArgs[0] ?? [];
+          const bSlice = rawArgs[1] ?? [];
+          const aVal = evaluateFormula(aSlice) ?? 0;
+          const bVal = evaluateFormula(bSlice) ?? 0;
+          if (fn === 'DATEDIFF_DAYS') {
+            return diffDays(Number(bVal), Number(aVal));
+          }
+          return diffMonths(Number(bVal), Number(aVal));
         }
 
-        const resolved = cond ? trueVal : falseVal;
-        const prev = stack[stack.length - 1];
-        const next = tokens[closeIdx + 1];
-        if (shouldInsertImplicitPlus(prev, next)) {
-          stack.push('+');
+        if (fn === 'YEAR') {
+          const s = rawArgs[0] ?? [];
+          const v = evaluateFormula(s) ?? 0;
+          // if it's TODAY or numeric timestamp, convert to year
+          const n = Number(v) || 0;
+          if (!Number.isFinite(n) || n === 0) {
+            return 0;
+          }
+          return new Date(n).getFullYear();
         }
-        stack.push(resolved);
 
-        i = closeIdx + 1;
-        continue;
+        // fallback
+        return 0;
       }
 
-      // VARIABLE
+      // Variable token (single)
       if (isVariableToken(t)) {
-        const v = t.source === 'FIXED' ? (t.fixedValue ?? 0) : (t.sampleValue ?? 0);
-        stack.push(t.role === 'LOGIC' ? 0 : typeof v === 'string' ? Number(v) || 0 : v);
-        i++;
-        continue;
+        consume();
+        return toNumberFromVariable(t);
       }
 
-      // OPERATORS
-      if (isMathOperator(t) && isSymbolToken(t)) {
-        stack.push(t.symbol);
-        i++;
-        continue;
+      // Symbol that is a numeric literal? (we don't have numeric tokens, variables hold numbers)
+      // If an unexpected symbol, just consume and return 0
+      consume();
+      return 0;
+    };
+
+    // parseTerm handles * and /
+    const parseTerm = (): number => {
+      let left = parseFactor();
+      while (!eof()) {
+        const t = peek();
+        if (!isSymbolToken(t) || (t.symbol !== '*' && t.symbol !== '/')) {
+          break;
+        }
+        const op = (consume() as SymbolToken).symbol;
+        const right = parseFactor();
+        if (op === '*') {
+          left = Number(left) * Number(right);
+        } else {
+          left = Number(right) === 0 ? 0 : Number(left) / Number(right);
+        }
       }
+      return left;
+    };
 
-      // STRING tokens are skipped in main loop (only used in IF comparisons)
-      if (isStringToken(t)) {
-        i++;
-        continue;
+    // parseExpression handles + and -
+    const parseExpression = (): number => {
+      let left = parseTerm();
+      while (!eof()) {
+        const t = peek();
+        if (!isSymbolToken(t) || (t.symbol !== '+' && t.symbol !== '-')) {
+          break;
+        }
+        const op = (consume() as SymbolToken).symbol;
+        const right = parseTerm();
+        if (op === '+') {
+          left = Number(left) + Number(right);
+        } else {
+          left = Number(left) - Number(right);
+        }
       }
+      return left;
+    };
 
-      i++;
-    }
+    // We need a small wrapper to allow recursion when evaluating sub-slices:
+    // when evaluateFormula is called recursively for slices, it will call this entire code again,
+    // but to avoid infinite recursion, detect when called with the same function and a fresh idx.
+    // For simplicity, if evaluateFormula is called recursively we will run parse on the provided tokens by creating
+    // a fresh inner evaluator: so we implement a separate small wrapper when needed below.
 
-    /* -------------------------------- result ---------------------------------- */
+    // The current invocation should parse the entire tokens array; but because we wrote functions that call evaluateFormula recursively,
+    // ensure those recursive calls use the global evaluateFormula (which is fine).
 
-    const finalParts = sanitizeParts(stack);
-    const result = evalParts(finalParts);
-    const rounded = Math.ceil(result / 1000) * 1000;
+    // Start parse
+    const result = parseExpression();
+    // const rounded = Math.ceil(result / 1000) * 1000;
+    // return Number.isFinite(rounded) ? rounded : null;
 
-    // console.log('evaluateFormula →', finalParts.join(' '), result);
-    return Number.isFinite(rounded) ? rounded : null;
+    return Number.isFinite(result) ? result : null;
   } catch (e) {
-    // console.error('evaluateFormula error', e);
+    // console.error('evaluateFormula parser error', e);
     return null;
   }
 };
 
 /* =================== BREAKDOWN & EXPRESSION =================== */
+
+export function roundUpToNearest(value: number, unit = 1000): number {
+  if (!Number.isFinite(value) || !unit || unit <= 0) {
+    return value;
+  }
+  return Math.ceil(value / unit) * unit;
+}
 
 export const calculateCostBreakdown = (tokens: CostFormulaToken[]) => {
   const groups = new Map<string, CostFormulaToken[]>();
@@ -530,7 +396,9 @@ export const calculateCostBreakdown = (tokens: CostFormulaToken[]) => {
   for (const [group, groupTokens] of Array.from(groups.entries())) {
     const value = evaluateFormula(groupTokens);
     if (typeof value === 'number' && value !== 0) {
-      result.push({ label: group, value });
+      // round up each breakdown value to nearest 1000
+      const rounded = roundUpToNearest(value, 1000);
+      result.push({ label: group, value: rounded });
     }
   }
 
@@ -571,4 +439,45 @@ export function buildFormulaExpression(
       return '';
     })
     .join(' ');
+}
+
+export interface ReminderTemplateContext {
+  user_name: string;
+  procedure_name: string;
+  event_date: string;
+}
+
+type Formatter<T> = (value: T) => string;
+
+const FORMATTERS: {
+  [K in keyof ReminderTemplateContext]: Formatter<ReminderTemplateContext[K]>;
+} = {
+  user_name: (v) => v,
+  procedure_name: (v) => v,
+  event_date: (v) =>
+    new Intl.DateTimeFormat('id-ID', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    }).format(new Date(v)),
+};
+
+export function renderReminderTemplate(
+  template: string | null | undefined,
+  context: ReminderTemplateContext
+): string {
+  if (!template) {
+    return '';
+  }
+
+  return template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, key: keyof ReminderTemplateContext) => {
+    const value = context[key];
+    const formatter = FORMATTERS[key];
+
+    if (!value || !formatter) {
+      return '';
+    }
+
+    return formatter(value as string & Date);
+  });
 }

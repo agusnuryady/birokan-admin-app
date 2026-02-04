@@ -45,7 +45,7 @@ export interface OrderResponse {
     fullName?: string | null;
     email: string;
     phoneNumber?: string | null;
-    profilePicId?: string | null;
+    profilePicUrl?: string | null;
     address?: string | null;
   } | null;
 

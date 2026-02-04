@@ -1,7 +1,9 @@
 'use client';
 
+import dayjs from 'dayjs';
 import { useState } from 'react';
 import {
+  IconBell,
   IconBuildings,
   IconCertificate,
   IconChecklist,
@@ -33,6 +35,7 @@ import {
   Text,
 } from '@mantine/core';
 import { ProcedureDeclarationInput, ProcedureResponse } from '@/services/procedureService';
+import { renderReminderTemplate } from '@/utils/procedure/helper';
 
 type ProcedureDetailProps = {
   data?: ProcedureResponse;
@@ -50,12 +53,30 @@ const SYMBOL_LABELS: Record<string, string> = {
   '>=': '≥',
   '<=': '≤',
   '==': '=',
-  IF: 'IF',
-  TODAY: 'TODAY',
-  DATEDIFF_MONTHS: 'DATEDIFF_MONTHS',
   ',': ',',
   '(': '(',
   ')': ')',
+  IF: 'IF',
+  TODAY: 'TODAY',
+  DATEDIFF_DAYS: 'DATEDIFF_DAYS',
+  DATEDIFF_MONTHS: 'DATEDIFF_MONTHS',
+  ROUND_UP: 'ROUND_UP',
+  ROUND_DOWN: 'ROUND_DOWN',
+  YEAR: 'YEAR',
+};
+
+const VALIDATION_OPERATOR_LABELS: Record<string, string> = {
+  REQUIRED: 'Required',
+  MIN_LENGTH: 'Minimum Length',
+  MAX_LENGTH: 'Maximum Length',
+  REGEX: 'Regex Match',
+  MIN: 'Minimum Value',
+  MAX: 'Maximum Value',
+  IN: 'Allowed Values',
+
+  DATE_NOT_OLDER_THAN_YEARS: 'Date not older than (years)',
+  DATE_NOT_BEFORE: 'Date not before',
+  DATE_NOT_AFTER: 'Date not after',
 };
 
 function buildFormulaExpression(tokens: any[], questions: any[]) {
@@ -89,6 +110,54 @@ function buildFormulaExpression(tokens: any[], questions: any[]) {
       return '';
     })
     .join(' ');
+}
+
+function renderRuleValue(value: unknown) {
+  if (value === undefined || value === null || value === '') {
+    return '—';
+  }
+
+  if (Array.isArray(value)) {
+    return value.join(', ');
+  }
+
+  if (typeof value === 'object') {
+    return JSON.stringify(value);
+  }
+
+  return String(value);
+}
+
+function renderCondition(condition?: { questionId: string; operator: string; value: unknown }) {
+  if (!condition) {
+    return null;
+  }
+
+  return `WHEN ${condition.questionId} ${condition.operator} ${renderRuleValue(condition.value)}`;
+}
+
+function buildReminderPreviewContext(data: ProcedureResponse) {
+  const template = data.reminderTemplate;
+  if (!template) {
+    return null;
+  }
+
+  // sample base date
+  let eventDate = dayjs().add(1, 'year');
+
+  if (template.offsetType === 'ONE_MONTH') {
+    eventDate = eventDate.subtract(1, 'month');
+  }
+
+  if (template.offsetType === 'ONE_WEEK') {
+    eventDate = eventDate.subtract(1, 'week');
+  }
+
+  return {
+    user_name: 'Budi',
+    procedure_name: data.name,
+    event_date: eventDate.format('DD MMMM YYYY'),
+  };
 }
 
 function DeclarationItem({ declaration }: { declaration: ProcedureDeclarationInput }) {
@@ -242,6 +311,16 @@ export default function ProcedureDetail({ data, onEdit, onDelete }: ProcedureDet
                   </Badge>
                 </Stack>
               </Grid.Col>
+              <Grid.Col span={4}>
+                <Stack gap={2}>
+                  <Text size="xs" c="dimmed">
+                    Is Reminder
+                  </Text>
+                  <Badge color={data?.isReminder ? 'teal' : 'gray'} radius="sm" variant="filled">
+                    {data?.isReminder ? 'True' : 'False'}
+                  </Badge>
+                </Stack>
+              </Grid.Col>
             </Grid>
           </Grid.Col>
         </Grid>
@@ -261,7 +340,14 @@ export default function ProcedureDetail({ data, onEdit, onDelete }: ProcedureDet
         variant="separated"
         radius="md"
         multiple
-        defaultValue={['requirements', 'documents', 'places', 'cost_options', 'cost_formula']}
+        defaultValue={[
+          'requirements',
+          'documents',
+          'places',
+          'cost_options',
+          'cost_formula',
+          'reminder_template',
+        ]}
       >
         {/* COST OPTIONS */}
         {data?.isAssistant && (
@@ -299,6 +385,7 @@ export default function ProcedureDetail({ data, onEdit, onDelete }: ProcedureDet
             </Accordion.Panel>
           </Accordion.Item>
         )}
+
         {/* COST FORMULA */}
         {data?.isAssistant && (data?.costFormula?.tokens?.length ?? 0) > 0 && (
           <Accordion.Item value="cost_formula">
@@ -338,6 +425,101 @@ export default function ProcedureDetail({ data, onEdit, onDelete }: ProcedureDet
             </Accordion.Panel>
           </Accordion.Item>
         )}
+
+        {/* REMINDER TEMPLATE */}
+        {data?.isReminder && data?.reminderTemplate && (
+          <Accordion.Item value="reminder_template">
+            <Accordion.Control icon={<IconBell size={16} />}>Reminder Template</Accordion.Control>
+
+            <Accordion.Panel>
+              {(() => {
+                const ctx = buildReminderPreviewContext(data);
+
+                if (!ctx) {
+                  return (
+                    <Text size="sm" c="dimmed">
+                      No reminder template configured
+                    </Text>
+                  );
+                }
+
+                const titlePreview = renderReminderTemplate(
+                  data.reminderTemplate.titleTemplate,
+                  ctx
+                );
+
+                const descPreview = renderReminderTemplate(data.reminderTemplate.descTemplate, ctx);
+
+                return (
+                  <Stack gap="md">
+                    {/* Meta */}
+                    <Paper withBorder radius="md" p="sm">
+                      <SimpleGrid cols={{ base: 1, sm: 2 }}>
+                        <Stack gap={2}>
+                          <Text size="xs" c="dimmed">
+                            Frequency
+                          </Text>
+                          <Badge variant="light">{data.reminderTemplate.frequency}</Badge>
+                        </Stack>
+
+                        <Stack gap={2}>
+                          <Text size="xs" c="dimmed">
+                            Offset
+                          </Text>
+                          <Badge variant="outline">{data.reminderTemplate.offsetType}</Badge>
+                        </Stack>
+
+                        <Stack gap={2}>
+                          <Text size="xs" c="dimmed">
+                            Date Source
+                          </Text>
+                          <Text size="sm">{data.reminderTemplate.dateSource}</Text>
+                        </Stack>
+                      </SimpleGrid>
+                    </Paper>
+
+                    {/* Preview */}
+                    <Paper
+                      withBorder
+                      radius="lg"
+                      p="md"
+                      style={{
+                        background: 'linear-gradient(180deg, #f8fafc, #ffffff)',
+                      }}
+                    >
+                      <Stack gap={6}>
+                        <Text size="xs" c="dimmed">
+                          🔔 Notification Preview
+                        </Text>
+
+                        <Text fw={700} size="md">
+                          {titlePreview}
+                        </Text>
+
+                        <Text size="sm" c="gray.7">
+                          {descPreview}
+                        </Text>
+                      </Stack>
+                    </Paper>
+
+                    {/* Variables hint */}
+                    <Paper radius="md" p="sm" bg="gray.0">
+                      <Text size="xs" c="dimmed">
+                        Available variables:
+                      </Text>
+                      <Group gap="xs" mt={4}>
+                        <Badge variant="outline">{`{{user_name}}`}</Badge>
+                        <Badge variant="outline">{`{{procedure_name}}`}</Badge>
+                        <Badge variant="outline">{`{{event_date}}`}</Badge>
+                      </Group>
+                    </Paper>
+                  </Stack>
+                );
+              })()}
+            </Accordion.Panel>
+          </Accordion.Item>
+        )}
+
         {/* REQUIREMENTS */}
         <Accordion.Item value="requirements">
           <Accordion.Control icon={<IconFileDescription size={16} />}>
@@ -532,6 +714,71 @@ export default function ProcedureDetail({ data, onEdit, onDelete }: ProcedureDet
           </Accordion.Item>
         )}
 
+        {/* VALIDATION RULES */}
+        {data?.isAssistant && (
+          <Accordion.Item value="validation_rules">
+            <Accordion.Control icon={<IconChecklist size={16} />}>
+              Form Question Validation Rules
+            </Accordion.Control>
+            <Accordion.Panel>
+              <Text size="sm" c="dimmed" mb="md">
+                Rules applied when users submit an order for this procedure
+              </Text>
+              {data?.questionsValidation?.length === 0 && (
+                <Divider label="No question validation yet" />
+              )}
+              <Stack gap="sm">
+                {data.questionsValidation.map((rule, i) => (
+                  <Paper key={i} withBorder p="sm" radius="md">
+                    <Stack gap={6}>
+                      <Group justify="space-between" align="center">
+                        <Text fw={500}>
+                          {VALIDATION_OPERATOR_LABELS[rule.operator] ?? rule.operator}
+                        </Text>
+                        <Badge color={rule.isActive ? 'teal' : 'gray'} variant="filled" radius="sm">
+                          {rule.isActive ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </Group>
+
+                      <Group gap="xs">
+                        <Text size="xs" c="dimmed">
+                          Target Field:
+                        </Text>
+                        <Badge variant="light">{rule.targetField}</Badge>
+                      </Group>
+
+                      <Group gap="xs">
+                        <Text size="xs" c="dimmed">
+                          Value:
+                        </Text>
+                        <Text size="sm">{renderRuleValue(rule.value)}</Text>
+                      </Group>
+
+                      {rule.condition && (
+                        <Group gap="xs">
+                          <Text size="xs" c="dimmed">
+                            Condition:
+                          </Text>
+                          <Text size="sm">{renderCondition(rule.condition)}</Text>
+                        </Group>
+                      )}
+
+                      <Divider />
+
+                      <Stack gap={2}>
+                        <Text size="xs" c="dimmed">
+                          Error Message
+                        </Text>
+                        <Text size="sm">{rule.message}</Text>
+                      </Stack>
+                    </Stack>
+                  </Paper>
+                ))}
+              </Stack>
+            </Accordion.Panel>
+          </Accordion.Item>
+        )}
+
         {/* DECLARATIONS */}
         {data?.isAssistant && (
           <Accordion.Item value="declarations">
@@ -543,6 +790,28 @@ export default function ProcedureDetail({ data, onEdit, onDelete }: ProcedureDet
               {data?.declarations?.length === 0 && <Divider label="No declaration yet" />}
               <Stack gap="sm">
                 {data?.declarations?.map((d, i) => (
+                  <DeclarationItem key={i} declaration={d} />
+                ))}
+              </Stack>
+            </Accordion.Panel>
+          </Accordion.Item>
+        )}
+
+        {/* AGNET DECLARATIONS */}
+        {data?.isAssistant && (
+          <Accordion.Item value="agentDeclarations">
+            <Accordion.Control icon={<IconCertificate size={16} />}>
+              Agent Declarations
+            </Accordion.Control>
+            <Accordion.Panel>
+              <Text size="sm" c="dimmed" mb="md">
+                List of agent declataion related to this procedure
+              </Text>
+              {data?.agentDeclarations?.length === 0 && (
+                <Divider label="No agent declaration yet" />
+              )}
+              <Stack gap="sm">
+                {data?.agentDeclarations?.map((d, i) => (
                   <DeclarationItem key={i} declaration={d} />
                 ))}
               </Stack>

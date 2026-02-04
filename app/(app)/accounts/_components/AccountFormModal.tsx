@@ -40,6 +40,7 @@ export function AccountFormModal({
 
   const form = useForm<UserFormValues>({
     initialValues: {
+      phoneCode: '',
       phoneNumber: '',
       role: '',
       isActive: true,
@@ -68,6 +69,7 @@ export function AccountFormModal({
         form.setValues({
           ...form.values,
           ...initialValues,
+          phoneCode: initialValues.phoneCode || '',
           phoneNumber: initialValues.phoneNumber || '',
           role: initialValues?.role || '',
           isActive: initialValues?.isActive ?? true,
@@ -89,6 +91,7 @@ export function AccountFormModal({
       setProfilePreview(null);
       setIdProofPreviews([]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opened, initialValues]);
 
   // watch for profile picture changes
@@ -216,8 +219,8 @@ export function AccountFormModal({
           <Grid gutter="lg">
             {/* Image */}
             <Grid.Col span={{ base: 12, sm: 3 }}>
-              {initialValues?.profilePicId ? (
-                <Image src={initialValues.profilePicId} alt={initialValues.email} radius="sm" />
+              {initialValues?.profilePicUrl ? (
+                <Image src={initialValues.profilePicUrl} alt={initialValues.email} radius="sm" />
               ) : (
                 <Paper
                   withBorder
@@ -290,19 +293,33 @@ export function AccountFormModal({
 
             <Grid.Col span={6}>
               {form.values.isAgent ? (
-                <TextInput
-                  label="Personal Phone Number"
-                  placeholder="Enter personal phone number"
-                  inputMode="tel"
-                  required
-                  {...form.getInputProps('phoneNumber')}
-                />
+                <Grid grow>
+                  <Grid.Col span={1}>
+                    <TextInput
+                      label="Phone Code"
+                      placeholder="Enter phone code"
+                      inputMode="tel"
+                      required
+                      {...form.getInputProps('phoneCode')}
+                    />
+                  </Grid.Col>
+                  <Grid.Col span={4}>
+                    <TextInput
+                      label="Phone Number"
+                      placeholder="Enter phone number"
+                      inputMode="tel"
+                      required
+                      {...form.getInputProps('phoneNumber')}
+                    />
+                  </Grid.Col>
+                </Grid>
               ) : (
                 <Stack gap={2}>
                   <Text size="xs" c="dimmed">
                     Phone Number
                   </Text>
                   <Text size="sm" fw={600}>
+                    {initialValues?.phoneCode || '-'}
                     {initialValues?.phoneNumber || '-'}
                   </Text>
                 </Stack>

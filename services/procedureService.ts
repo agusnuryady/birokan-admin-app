@@ -80,6 +80,57 @@ export interface ProcedureQuestionInput {
   linkURL?: string;
 }
 
+export enum ValidationOperator {
+  REQUIRED = 'REQUIRED',
+  MIN_LENGTH = 'MIN_LENGTH',
+  MAX_LENGTH = 'MAX_LENGTH',
+  REGEX = 'REGEX',
+  MIN = 'MIN',
+  MAX = 'MAX',
+  IN = 'IN',
+
+  DATE_NOT_OLDER_THAN_YEARS = 'DATE_NOT_OLDER_THAN_YEARS',
+  DATE_NOT_BEFORE = 'DATE_NOT_BEFORE',
+  DATE_NOT_AFTER = 'DATE_NOT_AFTER',
+}
+
+export enum ValidationConditionOperator {
+  EQUALS = 'EQUALS',
+  NOT_EQUALS = 'NOT_EQUALS',
+  IN = 'IN',
+  NOT_IN = 'NOT_IN',
+  EXISTS = 'EXISTS',
+}
+
+export interface ValidationConditionInput {
+  questionId: string;
+  operator: ValidationConditionOperator;
+  value: string | number | boolean | string[] | undefined;
+}
+
+export interface ProcedureQuestionValidationRuleInput {
+  id?: string;
+
+  targetField: string;
+  operator: ValidationOperator;
+
+  /**
+   * Meaning depends on operator:
+   * - DATE_NOT_OLDER_THAN_YEARS → number
+   * - REGEX → string
+   * - IN → string[]
+   */
+  value?: string | number | boolean | string[];
+
+  /** Error message shown to end user */
+  message: string;
+
+  /** Optional condition (WHEN rule applies) */
+  condition?: ValidationConditionInput;
+
+  isActive?: boolean;
+}
+
 export interface ProcedureDeclarationInput {
   id?: string;
   title: string;
@@ -94,38 +145,22 @@ export interface CompleteOrderDeclarationInput {
   content?: string;
 }
 
-// type CostFormulaToken =
-//   | {
-//       id: string;
-//       type: 'VARIABLE';
-//       source: 'QUESTION' | 'FIXED';
-//       questionId?: string;
-//       title?: string;
-//       fixedValue?: number;
-//       fixedString?: string;
-//       sampleValue?: number | string;
-//       role?: 'MONEY' | 'LOGIC';
-//     }
-//   | {
-//       id: string;
-//       type: 'SYMBOL';
-//       symbol:
-//         | '+'
-//         | '-'
-//         | '*'
-//         | '/'
-//         | '('
-//         | ')'
-//         | '>'
-//         | '<'
-//         | '>='
-//         | '<='
-//         | '=='
-//         | 'IF'
-//         | ','
-//         | 'TODAY'
-//         | 'DATEDIFF_MONTHS';
-//     };
+export type ReminderFrequency = 'MONTHLY' | 'YEARLY' | 'FIVE_YEARS' | 'CUSTOM';
+
+export type ReminderOffsetType = 'ONE_WEEK' | 'ONE_MONTH' | 'CUSTOM';
+
+export type ReminderDateSource = 'ORDER_CREATED_AT' | 'ORDER_DATE' | 'ORDER_FORM_ANSWER';
+
+export interface ProcedureReminderTemplateInput {
+  frequency: ReminderFrequency;
+  intervalValue?: number; // required if CUSTOM
+  offsetType: ReminderOffsetType;
+  offsetValue?: number; // required if CUSTOM
+  dateSource: ReminderDateSource;
+  dateKey?: string; // required if ORDER_FORM_ANSWER
+  titleTemplate: string;
+  descTemplate?: string;
+}
 
 /* ----------------------- Form Values for Frontend ------------------------ */
 export interface ProcedureFormValues {
@@ -136,17 +171,21 @@ export interface ProcedureFormValues {
   description?: string;
   isActive?: boolean;
   isAssistant?: boolean;
+  isReminder?: boolean;
   costOptions: CostOptionInput[];
   requirements: ProcedureRequirementInput[];
   documents: ProcedureDocumentInput[];
   places: ProcedurePlaceInput[];
   steps: ProcedureStepInput[];
   questions: ProcedureQuestionInput[];
+  questionsValidation: ProcedureQuestionValidationRuleInput[];
   declarations: ProcedureDeclarationInput[];
   completeForms: CompleteOrderDeclarationInput[];
   costFormula?: {
     tokens: CostFormulaToken[];
   };
+  agentDeclarations: ProcedureDeclarationInput[];
+  reminderTemplate?: ProcedureReminderTemplateInput | null;
 }
 
 /* ----------------------- Response Models ----------------------- */
@@ -158,6 +197,7 @@ export interface ProcedureResponse {
   description?: string;
   isActive: boolean;
   isAssistant?: boolean;
+  isReminder?: boolean;
   costOptions?: CostOptionInput[];
   createdAt: string;
   updatedAt: string;
@@ -167,11 +207,14 @@ export interface ProcedureResponse {
   steps?: ProcedureStepInput[];
   requirements?: ProcedureRequirementInput[];
   questions: ProcedureQuestionInput[];
+  questionsValidation: ProcedureQuestionValidationRuleInput[];
   declarations: ProcedureDeclarationInput[];
+  agentDeclarations: ProcedureDeclarationInput[];
   completeForms: CompleteOrderDeclarationInput[];
   costFormula?: {
     tokens: CostFormulaToken[];
   };
+  reminderTemplate?: ProcedureReminderTemplateInput | null;
 }
 
 /* ----------------------- Query & Pagination ----------------------- */
@@ -238,6 +281,7 @@ export async function createProcedure(values: ProcedureFormValues) {
 
   formData.append('isActive', String(values.isActive));
   formData.append('isAssistant', String(values.isAssistant));
+  formData.append('isReminder', String(values.isReminder));
 
   /* ================= COST OPTIONS ================= */
   (values.costOptions ?? []).forEach((op, i) => {
@@ -313,6 +357,25 @@ export async function createProcedure(values: ProcedureFormValues) {
     }
   });
 
+  /* ================= VALIDATION RULES ================= */
+  if (values.isAssistant) {
+    (values.questionsValidation ?? []).forEach((rule, i) => {
+      formData.append(`questionsValidation[${i}][targetField]`, rule.targetField);
+      formData.append(`questionsValidation[${i}][operator]`, rule.operator);
+      formData.append(`questionsValidation[${i}][message]`, rule.message);
+
+      if (rule.value !== undefined) {
+        formData.append(`questionsValidation[${i}][value]`, rule.value as string);
+      }
+
+      if (rule.condition) {
+        formData.append(`questionsValidation[${i}][condition]`, JSON.stringify(rule.condition));
+      }
+
+      formData.append(`questionsValidation[${i}][isActive]`, String(rule.isActive ?? true));
+    });
+  }
+
   /* ================= DECLARATIONS ================= */
   (values.declarations ?? []).forEach((d, i) => {
     formData.append(`declarations[${i}][title]`, d.title);
@@ -321,6 +384,17 @@ export async function createProcedure(values: ProcedureFormValues) {
     }
     if (d.content !== undefined) {
       formData.append(`declarations[${i}][content]`, d.content);
+    }
+  });
+
+  /* ================= AGENT DECLARATIONS ================= */
+  (values.agentDeclarations ?? []).forEach((d, i) => {
+    formData.append(`agentDeclarations[${i}][title]`, d.title);
+    if (d.boldText !== undefined) {
+      formData.append(`agentDeclarations[${i}][boldText]`, d.boldText);
+    }
+    if (d.content !== undefined) {
+      formData.append(`agentDeclarations[${i}][content]`, d.content);
     }
   });
 
@@ -334,6 +408,44 @@ export async function createProcedure(values: ProcedureFormValues) {
       formData.append(`completeForms[${i}][content]`, c.content);
     }
   });
+
+  /* ================= REMINDER TEMPLATE ================= */
+  if (values.reminderTemplate) {
+    if (values.reminderTemplate.dateKey !== undefined) {
+      formData.append(`reminderTemplate[dateKey]`, String(values.reminderTemplate.dateKey ?? ''));
+    }
+    formData.append(
+      `reminderTemplate[dateSource]`,
+      String(values.reminderTemplate.dateSource ?? '')
+    );
+    if (values.reminderTemplate.descTemplate) {
+      formData.append(
+        `reminderTemplate[descTemplate]`,
+        String(values.reminderTemplate.descTemplate ?? '')
+      );
+    }
+    formData.append(`reminderTemplate[frequency]`, String(values.reminderTemplate.frequency ?? ''));
+    if (values.reminderTemplate.intervalValue) {
+      formData.append(
+        `reminderTemplate[intervalValue]`,
+        String(values.reminderTemplate.intervalValue ?? '')
+      );
+    }
+    formData.append(
+      `reminderTemplate[offsetType]`,
+      String(values.reminderTemplate.offsetType ?? '')
+    );
+    if (values.reminderTemplate.offsetValue) {
+      formData.append(
+        `reminderTemplate[offsetValue]`,
+        String(values.reminderTemplate.offsetValue ?? '')
+      );
+    }
+    formData.append(
+      `reminderTemplate[titleTemplate]`,
+      String(values.reminderTemplate.titleTemplate ?? '')
+    );
+  }
 
   const { data } = await api.post<ProcedureResponse>('/v1/procedures/admin/create', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
@@ -358,6 +470,9 @@ export async function updateProcedure(id: string, values: ProcedureFormValues) {
   if (values.isAssistant !== undefined) {
     formData.append('isAssistant', String(values.isAssistant));
   }
+  if (values.isReminder !== undefined) {
+    formData.append('isReminder', String(values.isReminder));
+  }
   /* ================= COST OPTIONS ================= */
   (values.costOptions ?? []).forEach((op, i) => {
     formData.append(`costOptions[${i}][cost]`, String(op.cost));
@@ -368,7 +483,7 @@ export async function updateProcedure(id: string, values: ProcedureFormValues) {
   });
 
   /* ================= COST FORMULA ================= */
-  if (values.costFormula && values.costFormula.tokens.length > 0) {
+  if (values.costFormula && values.costFormula.tokens?.length > 0) {
     formData.append('costFormula', JSON.stringify(values.costFormula));
   }
 
@@ -511,6 +626,34 @@ export async function updateProcedure(id: string, values: ProcedureFormValues) {
     }
   });
 
+  /* ================= VALIDATION RULES ================= */
+  if (values.questionsValidation !== undefined) {
+    (values.questionsValidation ?? []).forEach((rule, i) => {
+      if (rule.id) {
+        formData.append(`questionsValidation[${i}][id]`, rule.id);
+      }
+
+      formData.append(`questionsValidation[${i}][targetField]`, rule.targetField);
+      formData.append(`questionsValidation[${i}][operator]`, rule.operator);
+      formData.append(`questionsValidation[${i}][message]`, rule.message);
+
+      if (rule.value !== undefined) {
+        formData.append(`questionsValidation[${i}][value]`, rule.value as string);
+      } else {
+        // Explicitly clear value if removed
+        formData.append(`questionsValidation[${i}][value]`, '');
+      }
+
+      if (rule.condition) {
+        formData.append(`questionsValidation[${i}][condition]`, JSON.stringify(rule.condition));
+      } else {
+        formData.append(`questionsValidation[${i}][condition]`, '');
+      }
+
+      formData.append(`questionsValidation[${i}][isActive]`, String(rule.isActive ?? true));
+    });
+  }
+
   /** ---------------------- DECLARATIONS ---------------------- **/
   (values.declarations ?? []).forEach((declaration, i) => {
     if (declaration.id) {
@@ -521,6 +664,18 @@ export async function updateProcedure(id: string, values: ProcedureFormValues) {
     }
     formData.append(`declarations[${i}][boldText]`, String(declaration.boldText ?? ''));
     formData.append(`declarations[${i}][content]`, String(declaration.content ?? ''));
+  });
+
+  /** ---------------------- AGENT DECLARATIONS ---------------------- **/
+  (values.agentDeclarations ?? []).forEach((agentDeclaration, i) => {
+    if (agentDeclaration.id) {
+      formData.append(`agentDeclarations[${i}][id]`, agentDeclaration.id);
+    }
+    if (agentDeclaration.title !== undefined) {
+      formData.append(`agentDeclarations[${i}][title]`, String(agentDeclaration.title));
+    }
+    formData.append(`agentDeclarations[${i}][boldText]`, String(agentDeclaration.boldText ?? ''));
+    formData.append(`agentDeclarations[${i}][content]`, String(agentDeclaration.content ?? ''));
   });
 
   /** ---------------------- COMPLETE ORDER DECLARATIONS ---------------------- **/
@@ -534,6 +689,44 @@ export async function updateProcedure(id: string, values: ProcedureFormValues) {
     formData.append(`completeForms[${i}][boldText]`, String(completeForm.boldText ?? ''));
     formData.append(`completeForms[${i}][content]`, String(completeForm.content ?? ''));
   });
+
+  /* ================= REMINDER TEMPLATE ================= */
+  if (values.reminderTemplate) {
+    if (values.reminderTemplate.dateKey !== undefined) {
+      formData.append(`reminderTemplate[dateKey]`, String(values.reminderTemplate.dateKey ?? ''));
+    }
+    formData.append(
+      `reminderTemplate[dateSource]`,
+      String(values.reminderTemplate.dateSource ?? '')
+    );
+    if (values.reminderTemplate.descTemplate) {
+      formData.append(
+        `reminderTemplate[descTemplate]`,
+        String(values.reminderTemplate.descTemplate ?? '')
+      );
+    }
+    formData.append(`reminderTemplate[frequency]`, String(values.reminderTemplate.frequency ?? ''));
+    if (values.reminderTemplate.intervalValue) {
+      formData.append(
+        `reminderTemplate[intervalValue]`,
+        String(values.reminderTemplate.intervalValue ?? '')
+      );
+    }
+    formData.append(
+      `reminderTemplate[offsetType]`,
+      String(values.reminderTemplate.offsetType ?? '')
+    );
+    if (values.reminderTemplate.offsetValue) {
+      formData.append(
+        `reminderTemplate[offsetValue]`,
+        String(values.reminderTemplate.offsetValue ?? '')
+      );
+    }
+    formData.append(
+      `reminderTemplate[titleTemplate]`,
+      String(values.reminderTemplate.titleTemplate ?? '')
+    );
+  }
 
   // ✅ Send multipart/form-data
   const { data } = await api.put<ProcedureResponse>(`/v1/procedures/admin/update/${id}`, formData, {

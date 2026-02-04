@@ -12,7 +12,17 @@ export type VariableSource = 'QUESTION' | 'FIXED';
 
 export type MathOperator = '+' | '-' | '*' | '/';
 export type CompareOperator = '==' | '>' | '<' | '>=' | '<=';
-export type SpecialSymbol = 'IF' | ',' | '(' | ')' | 'TODAY' | 'DATEDIFF_MONTHS';
+export type SpecialSymbol =
+  | 'IF'
+  | ','
+  | '('
+  | ')'
+  | 'TODAY'
+  | 'DATEDIFF_DAYS'
+  | 'DATEDIFF_MONTHS'
+  | 'ROUND_UP'
+  | 'ROUND_DOWN'
+  | 'YEAR';
 
 export type SymbolValue =
   | '+'
@@ -29,7 +39,11 @@ export type SymbolValue =
   | 'IF'
   | ','
   | 'TODAY'
-  | 'DATEDIFF_MONTHS';
+  | 'DATEDIFF_DAYS'
+  | 'DATEDIFF_MONTHS'
+  | 'ROUND_UP'
+  | 'ROUND_DOWN'
+  | 'YEAR';
 
 interface BaseToken {
   id: string;

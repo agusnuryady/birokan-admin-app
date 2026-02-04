@@ -74,8 +74,8 @@ export default function AccountsTable() {
               title: 'Profil Picture',
               render: (row) => (
                 <>
-                  {row.profilePicId ? (
-                    <Image src={row.profilePicId} alt={row.email} w={75} h={50} radius="sm" />
+                  {row.profilePicUrl ? (
+                    <Image src={row.profilePicUrl} alt={row.email} w={75} h={50} radius="sm" />
                   ) : (
                     <Paper
                       withBorder

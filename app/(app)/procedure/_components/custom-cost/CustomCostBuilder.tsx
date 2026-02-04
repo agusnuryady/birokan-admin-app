@@ -298,10 +298,14 @@ export function CustomCostBuilder({ tokens, questions, onChange }: CustomCostBui
                     '>=',
                     '<=',
                     '==',
-                    'IF',
                     ',',
+                    'IF',
                     'TODAY',
+                    'DATEDIFF_DAYS',
                     'DATEDIFF_MONTHS',
+                    'ROUND_UP',
+                    'ROUND_DOWN',
+                    'YEAR',
                   ].map((s) => ({ label: s, value: s }))}
                   value={token.symbol}
                   onChange={(v) =>
