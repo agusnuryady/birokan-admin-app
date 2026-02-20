@@ -69,6 +69,8 @@ export default function ProcedureModal({
       questions: [],
       declarations: [],
       completeForms: [],
+      questionsValidation: [],
+      agentDeclarations: [],
       costFormula: {
         tokens: [],
       },
