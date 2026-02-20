@@ -192,3 +192,9 @@ export const getOrderDetail = async (query: OrderDetailQuery): Promise<OrderResp
 
   return data;
 };
+
+export const getPayments = async () => {
+  const { data } = await api.get('/v1/payments/admin');
+
+  return data;
+};
