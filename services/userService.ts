@@ -5,8 +5,13 @@ export interface AreaOperation {
   long: number;
 }
 
+export interface AgentProcedure {
+  id: string;
+  procedureId: string;
+}
+
 export interface AgentData {
-  profilePicture?: File | string; // can be existing URL or uploaded file
+  profilePicture?: File | string | null; // can be existing URL or uploaded file
   idProofUrls?: (File | string)[]; // same — can mix files and URLs
   idFullName?: string;
   residentialAddress?: string;
@@ -15,6 +20,8 @@ export interface AgentData {
   isActive?: boolean;
   keepIdProofUrls?: string[];
   removeIdProofUrls?: string[];
+  procedureIds?: string[];
+  procedures?: AgentProcedure[];
 }
 
 export interface UserFormValues {
@@ -146,6 +153,11 @@ export async function updateUserAdmin(id: string, payload: UserFormValues) {
       rest.areaOperations.forEach((op, idx) => {
         formData.append(`agentData[areaOperations][${idx}][lat]`, String(op.lat));
         formData.append(`agentData[areaOperations][${idx}][long]`, String(op.long));
+      });
+    }
+    if (Array.isArray(rest.procedureIds)) {
+      rest.procedureIds.forEach((op, idx) => {
+        formData.append(`agentData[procedureIds][${idx}]`, String(op));
       });
     }
     formData.append(`agentData[isActive]`, String(rest.isActive));

@@ -26,7 +26,7 @@ interface ProcedureState {
 
 export const useProcedureStore = create<ProcedureState>((set, get) => ({
   procedures: [],
-  dropdown: { directory: [], documents: [], places: [], stepGroup: [] },
+  dropdown: { directory: [], documents: [], places: [], stepGroup: [], procedureGroup: [] },
   total: 0,
   totalPages: 0,
   page: 1,

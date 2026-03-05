@@ -1,64 +1,67 @@
 'use client';
 
-import { useState } from 'react';
+// import { useState } from 'react';
+// import { notifyApiError } from '@/utils/handleApiError';
+// import { AccountFormModal } from './AccountFormModal';
+import { useRouter } from 'next/navigation';
 import { IconDots, IconEdit } from '@tabler/icons-react';
 import { ActionIcon, Badge, Card, Image, Menu, Paper, Text } from '@mantine/core';
-import { notifications } from '@mantine/notifications';
+// import { notifications } from '@mantine/notifications';
 import DataTable from '@/components/DataTable';
 import {
-  getUserDetail,
-  updateUserAdmin,
-  UserFormValues,
+  // getUserDetail,
+  // updateUserAdmin,
+  // UserFormValues,
   UserResponse,
 } from '@/services/userService';
-import { useGlobalLoading } from '@/store/useGlobalLoading';
+// import { useGlobalLoading } from '@/store/useGlobalLoading';
 import { useUserStore } from '@/store/userStore';
-import { notifyApiError } from '@/utils/handleApiError';
-import { AccountFormModal } from './AccountFormModal';
 
 export default function AccountsTable() {
-  const { showLoading, hideLoading } = useGlobalLoading();
+  // const { showLoading, hideLoading } = useGlobalLoading();
   const { users, total, page, limit, loading, searchUsers, setSearchUsers, fetchUsers } =
     useUserStore();
+  const router = useRouter();
 
-  const [modalFormUser, setModalFormUser] = useState(false);
-  const [mode, setMode] = useState<'add' | 'edit'>('add');
-  const [selectedUser, setSelectedUser] = useState<UserResponse | undefined>(undefined);
+  // const [modalFormUser, setModalFormUser] = useState(false);
+  // const [mode, setMode] = useState<'add' | 'edit'>('add');
+  // const [selectedUser, setSelectedUser] = useState<UserResponse | undefined>(undefined);
 
   const handleEditUser = (User: UserResponse) => {
-    setMode('edit');
-    fetchUserDetail(User.id);
+    // setMode('edit');
+    // fetchUserDetail(User.id);
+    router.push(`/accounts/${User.id}`);
   };
 
-  const fetchUserDetail = async (id: string) => {
-    try {
-      showLoading();
-      const response = await getUserDetail({ id });
-      setSelectedUser(response);
-      setModalFormUser(true);
-    } catch (error: any) {
-      notifyApiError(error);
-    } finally {
-      hideLoading();
-    }
-  };
+  // const fetchUserDetail = async (id: string) => {
+  //   try {
+  //     showLoading();
+  //     const response = await getUserDetail({ id });
+  //     setSelectedUser(response);
+  //     setModalFormUser(true);
+  //   } catch (error: any) {
+  //     notifyApiError(error);
+  //   } finally {
+  //     hideLoading();
+  //   }
+  // };
 
-  const handleUpdateUser = async (id: string, values: UserFormValues) => {
-    try {
-      showLoading();
-      const response = await updateUserAdmin(id, values);
-      await fetchUsers();
-      await notifications.show({
-        title: 'Success',
-        message: `You have update ${response.email} User successfully 🎉`,
-        color: 'green',
-      });
-    } catch (error: any) {
-      notifyApiError(error);
-    } finally {
-      hideLoading();
-    }
-  };
+  // const handleUpdateUser = async (id: string, values: UserFormValues) => {
+  //   try {
+  //     showLoading();
+  //     const response = await updateUserAdmin(id, values);
+  //     await fetchUsers();
+  //     await notifications.show({
+  //       title: 'Success',
+  //       message: `You have update ${response.email} User successfully 🎉`,
+  //       color: 'green',
+  //     });
+  //   } catch (error: any) {
+  //     notifyApiError(error);
+  //   } finally {
+  //     hideLoading();
+  //   }
+  // };
 
   return (
     <>
@@ -177,7 +180,7 @@ export default function AccountsTable() {
           }}
         />
       </Card>
-      <AccountFormModal
+      {/* <AccountFormModal
         opened={modalFormUser}
         mode={mode}
         initialValues={selectedUser}
@@ -185,7 +188,7 @@ export default function AccountsTable() {
         onSubmit={(values) => {
           handleUpdateUser(selectedUser?.id || '', values);
         }}
-      />
+      /> */}
     </>
   );
 }

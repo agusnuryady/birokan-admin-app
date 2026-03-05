@@ -1,16 +1,18 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { IconTrash } from '@tabler/icons-react';
+import { IconSelector, IconTrash, IconX } from '@tabler/icons-react';
 import {
   ActionIcon,
   Box,
   Button,
+  Combobox,
   Divider,
   FileButton,
   Group,
   Image,
+  InputBase,
   NumberInput,
   Paper,
   Select,
@@ -20,6 +22,7 @@ import {
   Text,
   Textarea,
   TextInput,
+  useCombobox,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import {
@@ -119,6 +122,7 @@ export default function ProcedureFormPage({
   onSubmit,
 }: ProcedureFormPageProps) {
   const router = useRouter();
+  const combobox = useCombobox();
 
   /* ================= FORM ================= */
 
@@ -128,6 +132,7 @@ export default function ProcedureFormPage({
       name: '',
       slug: '',
       description: '',
+      group: '',
       isActive: true,
       isAssistant: false,
       isReminder: false,
@@ -147,7 +152,12 @@ export default function ProcedureFormPage({
     },
   });
 
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
   const [options, setOptions] = useState<string[]>([]);
+  const [searchGroup, setSearchGroup] = useState('');
+  const [selectedGroupValue, setSelectedGroupValue] = useState<string>('');
+  const [groupoptions, setGroupOptions] = useState<string[]>(dropdownData.procedureGroup);
 
   /* ================= INIT (SAME AS MODAL) ================= */
 
@@ -168,10 +178,72 @@ export default function ProcedureFormPage({
     const dropdownDefaults = dropdownData.stepGroup?.map((s) => s.group) || [];
 
     setOptions(Array.from(new Set([...defaultOptions, ...dropdownDefaults])));
+    setSelectedGroupValue(initialValues.group ?? '');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* ================= HELPERS ================= */
+  const createNewGroupOption = (label: string) => {
+    // avoid duplicates
+    if (!options.some((o) => o === label)) {
+      setGroupOptions((s) => [...s, label]);
+      return label;
+    }
+    return options.find((o) => o === label)!;
+  };
+
+  const handleGroupSelect = (val: string) => {
+    if (val === '$create') {
+      const label = searchGroup.trim();
+      if (!label) {
+        return;
+      }
+      const newItem = createNewGroupOption(label);
+      setSelectedGroupValue(newItem);
+      form.setFieldValue('group', newItem);
+      setSearchGroup('');
+    } else {
+      // normal selection
+      setSelectedGroupValue(val);
+      form.setFieldValue('group', val);
+      setSearchGroup('');
+    }
+    try {
+      combobox?.closeDropdown?.();
+    } catch (error) {
+      // console.log('error', error);
+    }
+  };
+
+  const handleGroupInputChange = (val: string) => {
+    if (selectedGroupValue) {
+      // user is editing after selecting -> drop selection
+      setSelectedGroupValue('');
+      form.setFieldValue('type', '');
+    }
+    setSearchGroup(val);
+    // open dropdown so user can see options
+    try {
+      combobox?.openDropdown?.();
+    } catch {
+      // ignore if combobox doesn't expose methods in this build
+    }
+  };
+
+  const handleClear = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setSelectedGroupValue('');
+    setSearchGroup('');
+    form.setFieldValue('type', '');
+    inputRef.current?.focus();
+  };
+
+  const handleKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (e) => {
+    if (e.key === 'Backspace' && !searchGroup && selectedGroupValue) {
+      e.preventDefault();
+      handleClear();
+    }
+  };
 
   const addCostOption = () =>
     form.setValues({
@@ -322,6 +394,24 @@ export default function ProcedureFormPage({
     return costBreakdown.reduce((sum, item) => sum + item.value, 0);
   }, [costBreakdown]);
 
+  /* ================= Group Render Option ================= */
+  const renderedOptions = useMemo(
+    () =>
+      groupoptions.map((opt) => (
+        <Combobox.Option value={opt} key={opt}>
+          <Group justify="space-between" wrap="nowrap" style={{ width: '100%' }}>
+            <Box>{opt}</Box>
+          </Group>
+        </Combobox.Option>
+      )),
+    [groupoptions]
+  );
+
+  // Create option show logic: show only when search non-empty & label not present already
+  const showCreateOption =
+    searchGroup.trim().length > 0 &&
+    !groupoptions.some((o) => o.toLowerCase() === searchGroup.trim().toLowerCase());
+
   /* ================= QUESTION OPTIONS FOR VALIDATION ================= */
 
   const questionSelectOptions = useMemo(
@@ -394,6 +484,53 @@ export default function ProcedureFormPage({
             placeholder="Enter description"
             {...form.getInputProps('description')}
           />
+
+          {/* Group */}
+          <Combobox onOptionSubmit={handleGroupSelect} store={combobox}>
+            <Combobox.Target>
+              <InputBase
+                label="Group"
+                placeholder="Select or add group"
+                value={
+                  // if user typing => show search, else show label of selectedValue
+                  searchGroup || groupoptions.find((o) => o === selectedGroupValue) || ''
+                }
+                onChange={(e) => handleGroupInputChange(e.currentTarget.value)}
+                onClick={() => combobox?.openDropdown?.()}
+                onKeyDown={handleKeyDown}
+                required
+                ref={inputRef}
+                rightSection={
+                  <Group gap={4}>
+                    {/* Clear button */}
+                    {searchGroup || selectedGroupValue ? (
+                      <ActionIcon
+                        size="sm"
+                        variant="transparent"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={handleClear}
+                        aria-label="Clear type"
+                      >
+                        <IconX size={16} />
+                      </ActionIcon>
+                    ) : (
+                      <IconSelector size={16} />
+                    )}
+                  </Group>
+                }
+                mb="md"
+              />
+            </Combobox.Target>
+
+            <Combobox.Dropdown>
+              <Combobox.Options>
+                {renderedOptions}
+                {showCreateOption && (
+                  <Combobox.Option value="$create">+ Add "{searchGroup}"</Combobox.Option>
+                )}
+              </Combobox.Options>
+            </Combobox.Dropdown>
+          </Combobox>
 
           <Group grow>
             <Group gap="xs" align="center">

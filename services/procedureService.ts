@@ -169,6 +169,7 @@ export interface ProcedureFormValues {
   name: string;
   slug: string;
   description?: string;
+  group?: string;
   isActive?: boolean;
   isAssistant?: boolean;
   isReminder?: boolean;
@@ -262,6 +263,7 @@ export interface ProcedureDropdownResponse {
     id: string;
     group: string;
   }[];
+  procedureGroup: string[];
 }
 
 /* ----------------------- CRUD API ----------------------- */
@@ -277,6 +279,9 @@ export async function createProcedure(values: ProcedureFormValues) {
 
   if (values.description) {
     formData.append('description', values.description);
+  }
+  if (values.group) {
+    formData.append('group', values.group ?? '');
   }
 
   formData.append('isActive', String(values.isActive));
@@ -462,8 +467,9 @@ export async function updateProcedure(id: string, values: ProcedureFormValues) {
   formData.append('directoryId', values.directoryId);
   formData.append('name', values.name);
   formData.append('slug', values.slug);
-
   formData.append('description', values.description ?? '');
+  formData.append('group', values.group ?? '');
+
   if (values.isActive !== undefined) {
     formData.append('isActive', String(values.isActive));
   }
